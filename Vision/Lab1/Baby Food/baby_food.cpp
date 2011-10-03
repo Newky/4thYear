@@ -103,7 +103,7 @@ int main( int argc, char** argv )
 	do {
 		// Process image (i.e. setup and find the number of spoons)
 		cvCopyImage( images[selected_image_num-1], selected_image );
-        cvShowImage( "Original", selected_image );
+		cvShowImage( "Original", selected_image );
 		image_for_on_mouse_show_values=selected_image;
 		int red_percentage = find_spoons( selected_image, result_image, temp_image );
 		write_number_of_spoons_on_image( result_image, red_percentage );
