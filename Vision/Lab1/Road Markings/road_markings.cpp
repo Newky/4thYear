@@ -21,25 +21,57 @@ double stdev(unsigned char* rgb) {
 };	
 
 int in_range(unsigned char* point) {
-	return (stdev(point) > 80);
+	return (stdev(point) > 81);
 };
 
-	//// This routine creates a binary result image where the points are 255,255,255 when the corresponding
-	//// source points are grey/white.  The rule for deciding which points are white/grey is very debatable.
-	//// Should the minimum value be greater?  Should the ratio of max to min values in the point be allowed
-	//// to vary more (or less)?
-void select_white_points( IplImage* source, IplImage* result )
+int* generate_hist(IplImage* source) {
+	int row=0,col=0, i=0;
+	int* hist = (int*)malloc(sizeof(int) * 256);
+	for(;i<256;i++)
+		hist[i] = 0;
+	int width_step=source->widthStep;
+	for(;row<source->height;row++) {
+		for(;col<source->width;col++){
+			unsigned char* curr_point = ((unsigned char *) source->imageData + (row)*(width_step) + (col));
+			hist[*curr_point]++;
+		};
+	};
+	return hist;
+};
+
+int get_threshold(int* hist) {
+	int i=0, max = 0, index = 0;
+	for(;i<256;i++){
+		if(hist[i] > max)
+			index= i;
+	}
+	return index;
+};
+
+void print_hist(int* hist) {
+	int i=0;
+	for(;i<256;i++)
+		printf("%d - %d\n", i, hist[i]);
+}
+
+// This routine creates a binary result image where the points are 255,255,255 when the corresponding
+// source points are grey/white.  The rule for deciding which points are white/grey is very debatable.
+// Should the minimum value be greater?  Should the ratio of max to min values in the point be allowed
+// to vary more (or less)?
+void select_white_points( IplImage* source, IplImage* result, int threshold)
 {
 	int width_step=source->widthStep;
 	int pixel_step=source->widthStep/source->width;
 	int number_channels=source->nChannels;
 	unsigned char white_pixel[4] = {255,255,255,0};
 	cvZero( result );
-	int row=0, col;
-	for(row=0;row<result->height;row++) {
-		for(col=0;col<result->width;col++){
-			unsigned char* curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step );
-			if(in_range(curr_point)){
+	int row=40;
+	for(;row<source->height;row++) {
+		int col = 80;
+		for(;col<source->width-80;col++){
+			//unsigned char curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step );
+			unsigned char* curr_point = ((unsigned char *) source->imageData + (row)*(width_step) + (col));
+			if(*curr_point >= threshold){
 				PUTPIXELMACRO( result, col, row, white_pixel, width_step, pixel_step, number_channels );
 			}	
 		}
@@ -75,24 +107,27 @@ int main( int argc, char** argv )
     img = cvRetrieveFrame(capture);
     tmp= cvCreateImage( cvSize(img->width, img->height), IPL_DEPTH_8U, 1);
     cvCvtColor(img, tmp, CV_RGB2GRAY);
-    res = cvCloneImage(tmp);
-    select_white_points(tmp, res);
 
+    int * hist = generate_hist(tmp);
+    int threshold = (double) get_threshold(hist) / 2;
+    res = cvCloneImage(tmp);
+    select_white_points(tmp, res, threshold);
     cvNamedWindow( "Original", 1 );
     cvNamedWindow( "Result", 1 );
     cvShowImage("Original", img);
     cvShowImage("Result", res);
 
-    //while ( user_clicked_key != ESC ) {
-    while(cvGrabFrame(capture)) {
-    	    img = cvRetrieveFrame(capture);
-    	    tmp= cvCreateImage( cvSize(img->width, img->height), IPL_DEPTH_8U, 1);
-    	    cvCvtColor(img, tmp, CV_RGB2GRAY);
-    	    res = cvCloneImage(tmp);
-    	    select_white_points(tmp, res);
-    	    cvShowImage("Original", img);
-    	    cvShowImage("Result", res);
+    while(cvGrabFrame(capture) && user_clicked_key != ESC) {
+	    int * hist = generate_hist(tmp);
+	    int threshold = (double) get_threshold(hist) / 2;
+	    img = cvRetrieveFrame(capture);
+	    tmp= cvCreateImage( cvSize(img->width, img->height), IPL_DEPTH_8U, 1);
+	    cvCvtColor(img, tmp, CV_RGB2GRAY);
+	    select_white_points(tmp, res, threshold);
+	    cvShowImage("Original", img);
+	    cvShowImage("Result", res);
+	    free(hist);
 	    user_clicked_key = cvWaitKey(1000/fps);
-    }
+    };
     return 0;
 };
