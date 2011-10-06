@@ -1,8 +1,8 @@
 %!PS-Adobe-3.0
-%%Title: explicitserver.py, client.py
+%%Title: explicitserver.py, client.py, structure.txt
 %%For: Richard Delaney
 %%Creator: a2ps version 4.14
-%%CreationDate: Thu Oct  6 14:40:11 2011
+%%CreationDate: Thu Oct  6 14:47:42 2011
 %%BoundingBox: 24 24 571 818
 %%DocumentData: Clean7Bit
 %%Orientation: Landscape
@@ -745,7 +745,7 @@ def
 /y0 0 def
 %%EndSetup
 
-%%Page: (1) 1
+%%Page: (1,1) 1
 %%BeginPageSetup
 /pagesave save def
 sh 0 translate 90 rotate
@@ -849,21 +849,7 @@ x0 y0 moveto
 () N
 (explicitserver.py) (Page 1/1) (Oct 06, 11 14:32) title
 border
-grestore
-(Printed by Richard Delaney) rhead
-(explicitserver.py) (1/2) (Thursday October 06, 2011) footer
-end % of iso1dict
-pagesave restore
-showpage
-%%Page: (1) 2
-%%BeginPageSetup
-/pagesave save def
-sh 0 translate 90 rotate
-%%EndPageSetup
-iso1dict begin
-gsave
-llx lly 12 add translate
-/v 0 store
+/v 1 store
 /x0 x v get 3.362408 add sx cw mul add store
 /y0 y v get bfs th add sub store
 x0 y0 moveto
@@ -899,7 +885,42 @@ x0 y0 moveto
 border
 grestore
 (Printed by Richard Delaney) rhead
-(client.py) (2/2) (Thursday October 06, 2011) footer
+(explicitserver.py, client.py) (1/2) (Thursday October 06, 2011) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1) 2
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.362408 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(I would suggest a code structure such as) p n
+() N
+({) N
+() S 8 T ("encoding": "utf-8",) N
+() S 8 T ("language": "en-us",) N
+() S 8 T ("degree": "low",) N
+() S 8 T ("body":) S 16 T ("message goes here") N
+(}) N
+() N
+(This is an example of a json formatted message, it used the json format, which s) N
+(tands for javascript object notation format.) N
+(There is a json parser available for most languages and if its not available it ) N
+(is easier to write than an xml parser.) N
+(This would be easier than xml to send and to build as there is far less to parse) N
+(.) N
+(structure.txt) (Page 1/1) (Oct 06, 11 14:45) title
+border
+grestore
+(Printed by Richard Delaney) rhead
+(structure.txt) (2/2) (Thursday October 06, 2011) footer
 end % of iso1dict
 pagesave restore
 showpage
