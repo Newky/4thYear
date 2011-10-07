@@ -10,20 +10,11 @@
 
 #define THRESHOLD 200
 
-
-double stdev(unsigned char* rgb) {
-	int mean= ((double)(rgb[RED_CH] + rgb[GREEN_CH] + rgb[BLUE_CH]))/ 3;
-	return (((rgb[RED_CH] - mean)*(rgb[RED_CH] - mean))
-		+
-		((rgb[GREEN_CH] - mean)*(rgb[GREEN_CH] - mean))
-		+
-		((rgb[BLUE_CH] - mean)*(rgb[BLUE_CH] - mean))) / 3;
-};	
-
-int in_range(unsigned char* point) {
-	return (stdev(point) > 81);
-};
-
+/* Given a greyscale image
+ * Generate a histogram for it
+ * Simple function which loops through the image data,
+ * increment the relevant index
+ */
 int* generate_hist(IplImage* source) {
 	int row=0,col=0, i=0;
 	int* hist = (int*)malloc(sizeof(int) * 256);
@@ -38,7 +29,10 @@ int* generate_hist(IplImage* source) {
 	};
 	return hist;
 };
-
+/* This function finds the
+ * average color value of the pictures
+ * histogram.
+ */
 int get_threshold(int* hist) {
 	int i=0,sum=0, num=0;;
 	for(;i<256;i++){
@@ -50,15 +44,9 @@ int get_threshold(int* hist) {
 	return (int)((double)sum / num);
 };
 
-int get_threshold_wrong(int* hist) {
-	int i=0, max = 0, index = 0;
-	for(;i<256;i++){
-		if(hist[i] > max)
-			index= i;
-	}
-	return index;
-};
-
+/* Simple
+ * Histogram Printer
+ */
 void print_hist(int* hist) {
 	int i=0;
 	for(;i<256;i++)
@@ -80,7 +68,6 @@ void select_white_points( IplImage* source, IplImage* result, int threshold)
 	for(;row<source->height;row++) {
 		int col=dec;
 		for(;col<source->width-dec;col++){
-			//unsigned char curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step );
 			unsigned char* curr_point = ((unsigned char *) source->imageData + (row)*(width_step) + (col));
 			if(*curr_point >= threshold){
 				PUTPIXELMACRO( result, col, row, white_pixel, width_step, pixel_step, number_channels );
@@ -89,16 +76,7 @@ void select_white_points( IplImage* source, IplImage* result, int threshold)
 		if(dec > 0)
 			dec --;
 	}
-
-	//// Apply morphological opening and closing operations to clean up the image
-	//cvMorphologyEx( result, result, NULL, NULL, CV_MOP_OPEN, 3 );
-	//cvMorphologyEx( result, result, NULL, NULL, CV_MOP_CLOSE, 3 );
-}
-
-void grey_scale(IplImage* src, IplImage* result) {
-	result = cvCreateImage( cvSize(src->width, src->height), IPL_DEPTH_8U, 1);
-	cvCvtColor(src, result, CV_RGB2GRAY);
-}
+};
 
 
 int main( int argc, char** argv )
@@ -111,27 +89,27 @@ int main( int argc, char** argv )
     int fps = (int) cvGetCaptureProperty(capture, CV_CAP_PROP_FPS);
 
     int user_clicked_key = 0;
-    if(!cvGrabFrame(capture)) {
-	printf("Error in capturing frame");
-	exit(0);
-    }
+    //if(!cvGrabFrame(capture)) {
+	//printf("Error in capturing frame");
+	//exit(0);
+    //}
 
-    img = cvRetrieveFrame(capture);
-    tmp= cvCreateImage( cvSize(img->width, img->height), IPL_DEPTH_8U, 1);
-    cvCvtColor(img, tmp, CV_RGB2GRAY);
+    //img = cvRetrieveFrame(capture);
+    //tmp= cvCreateImage( cvSize(img->width, img->height), IPL_DEPTH_8U, 1);
+    //cvCvtColor(img, tmp, CV_RGB2GRAY);
 
-    int * hist = generate_hist(tmp);
-    int threshold = (double) get_threshold(hist) / 2;
-    res = cvCloneImage(tmp);
-    select_white_points(tmp, res, threshold);
+    //int * hist = generate_hist(tmp);
+    //int threshold =  get_threshold(hist) * 1.5;
+    //res = cvCloneImage(tmp);
+    //select_white_points(tmp, res, threshold);
     cvNamedWindow( "Original", 1 );
     cvNamedWindow( "Result", 1 );
-    cvShowImage("Original", img);
-    cvShowImage("Result", res);
+    //cvShowImage("Original", img);
+    //cvShowImage("Result", res);
 
     while(cvGrabFrame(capture) && user_clicked_key != ESC) {
 	    int * hist = generate_hist(tmp);
-	    int threshold =  get_threshold(hist) + 20;
+	    int threshold =  get_threshold(hist) *1.5;
 	    img = cvRetrieveFrame(capture);
 	    tmp= cvCreateImage( cvSize(img->width, img->height), IPL_DEPTH_8U, 1);
 	    cvCvtColor(img, tmp, CV_RGB2GRAY);
