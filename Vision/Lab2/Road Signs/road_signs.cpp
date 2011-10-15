@@ -8,42 +8,99 @@
 #include <stdlib.h>
 #include "../utilities.h"
 
-
+#define THRESHOLD 50
 #define NUM_IMAGES 5
 
+int is_zero(IplImage* mask_image);
 // Locate the red pixels in the source image.
 void find_red_points( IplImage* source, IplImage* result, IplImage* temp )
 {
-	// TO DO:  Write code to select all the red road sign points.  You may need to clean up the result
-	//        using mathematical morphology.  The result should be a binary image with the selected red
-	//        points as white points.  The temp image passed may be used in your processing.
-}
-
+	int width_step=source->widthStep;
+	int pixel_step=source->widthStep/source->width;
+	int number_channels=source->nChannels;
+	cvZero( result );
+	int row=0,col=0;
+	unsigned char white_pixel[4] = {255,0,0,0};
+	for (row=0; row < result->height; row++){
+		for (col=0; col < result->width; col++)
+		{
+			unsigned char* curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step );
+			if ((curr_point[RED_CH] >= THRESHOLD) && ((curr_point[BLUE_CH] < THRESHOLD) || (curr_point[GREEN_CH] < THRESHOLD)))
+			{
+				PUTPIXELMACRO( result, col, row, white_pixel, width_step, pixel_step, number_channels );
+			}
+		}
+	}
+	// Apply morphological opening and closing operations to clean up the image
+	//cvMorphologyEx( result, temp, NULL, NULL, CV_MOP_OPEN, 3 );
+	//cvMorphologyEx( temp, result, NULL, NULL, CV_MOP_CLOSE, 3 );
+};
+/* Returns a CvSeq which is basically a list of 
+ * Points which are connected
+ */
 CvSeq* connected_components( IplImage* source, IplImage* result )
 {
+	//Create a one channel image of the source file.
 	IplImage* binary_image = cvCreateImage( cvGetSize(source), 8, 1 );
 	cvConvertImage( source, binary_image );
+	//Allocate some storage
 	CvMemStorage* storage = cvCreateMemStorage(0);
 	CvSeq* contours = 0;
+	//cvThreshold applies a threshold to a single channel array
+	//Takes the newly single channeled src and thresholds
+	//in regards to a threshold of 1 apparently.
+	// 255 is max value obv.
 	cvThreshold( binary_image, binary_image, 1, 255, CV_THRESH_BINARY );
-	cvFindContours( binary_image, storage, &contours, sizeof(CvContour),	CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE );
+	// Storage is given as container of retrieved contours.
+	// &contours becomes the pointer to the first outer contour
+	// Next is size of sequence header
+	// CV_RETR_CCOMP is one way the contours retrieved can be organised
+	// top level is external boundaries
+	// second level is bound boundaries
+	//Last argument is method
+	//CV Chain approx simple seems to compress points, 
+	//i.e it doesn't tell you all the points in between, jsut the ending points
+	cvFindContours( binary_image, storage, &contours, sizeof(CvContour),CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE );
+	// If result is an initialised Image
 	if (result)
 	{
+		//Black out the image
 		cvZero( result );
+		//For each contour found
 		for(CvSeq* contour = contours ; contour != 0; contour = contour->h_next )
 		{
+			//Pick a random color (No contour should have the same color)
 			CvScalar color = CV_RGB( rand()&255, rand()&255, rand()&255 );
 			/* replace CV_FILLED with 1 to see the outlines */
+			/* Takes the result image and a contour (one contour)
+			 * external color and hole color
+			 * Not sure what max level (next param) really does, something to do
+			 * with how much of the contour is drawn.
+			 * CV_FILLED fills the contours if 1 given highlights the outline.*/
 			cvDrawContours( result, contour, color, color, -1, CV_FILLED, 8 );
 		}
 	}
+	//Returns the outer most contour as a list of contours
 	return contours;
 }
 
 void invert_image( IplImage* source, IplImage* result )
 {
-	// TO DO:  Write code to invert all points in the source image (i.e. for each channel for each pixel in the result
-	//        image the value should be 255 less the corresponding value in the source image).
+	int width_step=source->widthStep;
+	int pixel_step=source->widthStep/source->width;
+	int number_channels=source->nChannels;
+	cvZero( result );
+	int row=0,col=0, i;
+	for (row=0; row < result->height; row++){
+		for (col=0; col < result->width; col++){
+			unsigned char* curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step );
+			unsigned char temp_point[number_channels];
+			for(i=0;i<number_channels;i++) {
+				temp_point[i] = 255-curr_point[i];
+				PUTPIXELMACRO( result, col, row, temp_point, width_step, pixel_step, number_channels );
+			};
+		}
+	}
 }
 
 // Assumes a 1D histogram of 256 elements.
@@ -54,37 +111,107 @@ int determine_optimal_threshold( CvHistogram* hist )
 	// NOTES:  Assume there are 256 elements in the histogram.
 	//         To get the histogram value at index i
 	//            int histogram_value_at_i = ((int) *cvGetHistValue_1D(hist, i));
+	
+	//return 127;  // Just so that the project will compile...
+	int curr = 127,old_curr=0;
+	while(curr != old_curr) {
+		int sum1=0, num1=0, sum2=0, num2=0, i=0;
+		for(;i<256;i++){
+			int val = ((int) *cvGetHistValue_1D(hist, i));
+			if(val > curr){
+				sum2+=val;num2++;
+			}else{
+				sum1+=val;num1++;
+			}
+		}
+		//printf("%d %d %d %d \n", sum1, num1, sum2, num2);
+		if(sum1 != 0 && num1 != 0)
+			sum1 = ((double)sum1)/num1;
+		if(sum2 != 0 && num2 != 0)
+			sum2 = ((double)sum2)/num2;
+		old_curr = curr;
+		curr = ((double)sum1 + sum2)/2;
+	};
+	//printf("Found optimal %d\n", curr);
+	return 127;
+}
 
-	return 127;  // Just so that the project will compile...
+int is_zero(IplImage* mask_image) {
+	int width_step=mask_image->widthStep;
+	int pixel_step=mask_image->widthStep/mask_image->width;
+	int number_channels=mask_image->nChannels;
+	int i=0, row=0, col=0;
+	for (row=0; row < mask_image->height; row++){
+		for (col=0; col < mask_image->width; col++){
+			unsigned char* curr_point = GETPIXELPTRMACRO( mask_image, col, row, width_step, pixel_step );
+			if(*curr_point != 0)
+				return *curr_point;
+		}
+	}
+	return 1;
 }
 
 void apply_threshold_with_mask(IplImage* grayscale_image,IplImage* result_image,IplImage* mask_image,int threshold)
 {
 	// TO DO:  Apply binary thresholding to those points in the passed grayscale_image which correspond to non-zero
 	//        points in the passed mask_image.  The binary results (0 or 255) should be stored in the result_image.
+	int width_step=mask_image->widthStep;
+	int pixel_step=mask_image->widthStep/mask_image->width;
+	int width_step2=result_image->widthStep;
+	int pixel_step2=result_image->widthStep/result_image->width;
+	int number_channels=grayscale_image->nChannels;
+	int number_channels2=result_image->nChannels;
+	int row=0,col=0;
+	for(;row<mask_image->height;row++) {
+		for(col=0;col<mask_image->width;col++) {
+			unsigned char* mask_point = GETPIXELPTRMACRO( mask_image, col, row, width_step, pixel_step );
+			unsigned char* curr_point = GETPIXELPTRMACRO( grayscale_image, col, row, width_step, pixel_step );
+			unsigned char black[] = {0,0,0};
+			unsigned char white[] = {255,255,255};
+			int i=0;
+
+			if(*mask_point != 0){
+				if(*curr_point <= threshold){
+					PUTPIXELMACRO( result_image, col, row, black, width_step2, pixel_step2,number_channels2);
+				}else {
+					PUTPIXELMACRO( result_image, col, row, white, width_step2, pixel_step2,number_channels2);
+				}
+			}
+		}
+	}	
+
 }
 
+//Example:determine_optimal_sign_classification( selected_image, red_point_image, red_components, background_components, result_image );
 void determine_optimal_sign_classification( IplImage* original_image, IplImage* red_point_image, CvSeq* red_components, CvSeq* background_components, IplImage* result_image )
 {
 	int width_step=original_image->widthStep;
 	int pixel_step=original_image->widthStep/original_image->width;
+	//There are three one channel images created of size of original
+	//One is the original converted to grayscale
 	IplImage* mask_image = cvCreateImage( cvGetSize(original_image), 8, 1 );
 	IplImage* grayscale_image = cvCreateImage( cvGetSize(original_image), 8, 1 );
 	cvConvertImage( original_image, grayscale_image );
 	IplImage* thresholded_image = cvCreateImage( cvGetSize(original_image), 8, 1 );
+	//The resulting Image and the thresholded_image are both blacked.
 	cvZero( thresholded_image );
 	cvZero( result_image );
 	int row=0,col=0;
+	// curr_red_region is a sequence of contours which represent the red components in the image.
 	CvSeq* curr_red_region = red_components;
 	// For every connected red component
 	while (curr_red_region != NULL)
 	{
+		
 		cvZero( mask_image );
 		CvScalar color = CV_RGB( 255, 255, 255 );
 		CvScalar mask_value = cvScalar( 255 );
 		// Determine which background components are contained within the red component (i.e. holes)
 		//  and create a binary mask of those background components.
+		//  v_next refers to the next node on a vertical hierarchy
+		//  while h_next refers to next node on same level as itself.
 		CvSeq* curr_background_region = curr_red_region->v_next;
+		// if a background region even exists
 		if (curr_background_region != NULL)
 		{
 			while (curr_background_region != NULL)
@@ -95,6 +222,7 @@ void determine_optimal_sign_classification( IplImage* original_image, IplImage* 
 			}
 			int hist_size=256;
 			CvHistogram* hist = cvCreateHist( 1, &hist_size, CV_HIST_ARRAY );
+			//The mask here is important as it tells it what part of the image to histogram!
 			cvCalcHist( &grayscale_image, hist, 0, mask_image );
 			// Determine an optimal threshold on the points within those components (using the mask)
 			int optimal_threshold = determine_optimal_threshold( hist );
@@ -102,7 +230,6 @@ void determine_optimal_sign_classification( IplImage* original_image, IplImage* 
 		}
 		curr_red_region = curr_red_region->h_next;
 	}
-
 	for (row=0; row < result_image->height; row++)
 	{
 		unsigned char* curr_red = GETPIXELPTRMACRO( red_point_image, 0, row, width_step, pixel_step );
@@ -115,7 +242,6 @@ void determine_optimal_sign_classification( IplImage* original_image, IplImage* 
 				curr_result[2] = 255;
 		}
 	}
-
 	cvReleaseImage( &mask_image );
 }
 
@@ -132,7 +258,7 @@ int main( int argc, char** argv )
 	IplImage* result_image = NULL;
 	CvSeq* red_components = NULL;
 	CvSeq* background_components = NULL;
-
+	
 	// Load all the images.
 	for (int file_num=1; (file_num <= NUM_IMAGES); file_num++)
 	{
@@ -149,7 +275,7 @@ int main( int argc, char** argv )
 	}
 
 	// Explain the User Interface
-    printf( "Hot keys: \n"
+	printf( "Hot keys: \n"
             "\tESC - quit the program\n"
 			"\t1 - Real Road Signs (image 1)\n"
 			"\t2 - Real Road Signs (image 2)\n"
@@ -163,12 +289,12 @@ int main( int argc, char** argv )
 			);
     
 	// Create display windows for images
-    cvNamedWindow( "Original", 1 );
-    cvNamedWindow( "Processed Image", 1 );
+	cvNamedWindow( "Original", 1 );
+	cvNamedWindow( "Processed Image", 1 );
 
 	// Setup mouse callback on the original image so that the user can see image values as they move the
 	// cursor over the image.
-    cvSetMouseCallback( "Original", on_mouse_show_values, 0 );
+	cvSetMouseCallback( "Original", on_mouse_show_values, 0 );
 	window_name_for_on_mouse_show_values="Original";
 	image_for_on_mouse_show_values=selected_image;
 
@@ -183,23 +309,32 @@ int main( int argc, char** argv )
 			cvReleaseImage( &connected_background_image );
 			cvReleaseImage( &result_image );
 		}
+		//Selected image is the image as normal
 		selected_image = images[selected_image_num-1];
+		//Red points is a binary version of the image which highlights the red components
 		red_point_image = cvCloneImage( selected_image );
 		result_image = cvCloneImage( selected_image );
+		// Temp image used for some transformations and processing
 		temp_image = cvCloneImage( selected_image );
+
 		connected_reds_image = cvCloneImage( selected_image );
 		connected_background_image = cvCloneImage( selected_image );
 
 		// Process image
 		image_for_on_mouse_show_values = selected_image;
+		//Find red points of selected image and return them in
+		// red point image
+		// This should highlight the red surroundings.
+		// Why does it crap out with morphological operations?
 		find_red_points( selected_image, red_point_image, temp_image );
+		// Red components image is finding connected components in the binary red image
 		red_components = connected_components( red_point_image, connected_reds_image );
 		invert_image( red_point_image, temp_image );
 		background_components = connected_components( temp_image, connected_background_image );
 		determine_optimal_sign_classification( selected_image, red_point_image, red_components, background_components, result_image );
 
 		// Show the original & result
-        cvShowImage( "Original", selected_image );
+		cvShowImage( "Original", selected_image );
 		do {
 			if ((user_clicked_key == 'r') || (user_clicked_key == 'c') || (user_clicked_key == 'h') || (user_clicked_key == 's'))
 				show_ch = user_clicked_key;
@@ -216,18 +351,18 @@ int main( int argc, char** argv )
 				break;
 			case 's':
 			default:
-				cvShowImage( "Processed Image", result_image );
+				cvShowImage( "Processed Image", result_image);
 				break;
 			}
-	        user_clicked_key = cvWaitKey(0);
+			user_clicked_key = cvWaitKey(0);
 		} while ((!((user_clicked_key >= '1') && (user_clicked_key <= '0'+NUM_IMAGES))) &&
 			     ( user_clicked_key != ESC ));
+		/* End of nested do while */
 		if ((user_clicked_key >= '1') && (user_clicked_key <= '0'+NUM_IMAGES))
 		{
 			selected_image_num = user_clicked_key-'0';
 		}
 	} while ( user_clicked_key != ESC );
-
-	printf("Hello World");
+	/*End of first do while*/
     return 1;
 }
