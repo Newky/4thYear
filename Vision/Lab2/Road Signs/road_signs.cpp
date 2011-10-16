@@ -15,18 +15,28 @@ int is_zero(IplImage* mask_image);
 // Locate the red pixels in the source image.
 void find_red_points( IplImage* source, IplImage* result, IplImage* temp )
 {
-	int width_step=source->widthStep;
-	int pixel_step=source->widthStep/source->width;
-	int number_channels=source->nChannels;
+	IplImage* channelRed = cvCreateImage(  cvGetSize(source), 8, 1);
+        IplImage* channelGreen = cvCreateImage(cvGetSize(source), 8, 1);
+	IplImage* channelBlue = cvCreateImage( cvGetSize(source), 8, 1);
+	cvSplit(source, channelBlue, channelGreen, channelRed, NULL);
+	// Red = red - (green + blue)
+	cvAdd(channelBlue, channelGreen, channelGreen);
+	cvSub(channelRed, channelGreen, channelRed);
+	cvThreshold( channelRed, channelRed , 10, 255, CV_THRESH_BINARY );
+
+	int width_step=result->widthStep;
+	int width_step2=channelRed->widthStep;
+	int pixel_step=result->widthStep/source->width;
+	int number_channels=result->nChannels;
 	cvZero( result );
 	int row=0,col=0;
 	unsigned char white_pixel[4] = {255,0,0,0};
 	for (row=0; row < result->height; row++){
 		for (col=0; col < result->width; col++)
 		{
-			unsigned char* curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step );
-			if ((curr_point[RED_CH] >= THRESHOLD) && ((curr_point[BLUE_CH] < THRESHOLD) || (curr_point[GREEN_CH] < THRESHOLD)))
-			{
+			unsigned char* curr_point = GETPIXELPTRMACRO( channelRed, col, row, width_step2, 1);
+			//if ((curr_point[RED_CH] >= THRESHOLD) && ((curr_point[BLUE_CH] < THRESHOLD) || (curr_point[GREEN_CH] < THRESHOLD)))
+			if(*curr_point == 255){
 				PUTPIXELMACRO( result, col, row, white_pixel, width_step, pixel_step, number_channels );
 			}
 		}
