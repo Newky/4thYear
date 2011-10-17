@@ -15,35 +15,31 @@ int is_zero(IplImage* mask_image);
 // Locate the red pixels in the source image.
 void find_red_points( IplImage* source, IplImage* result, IplImage* temp )
 {
-	IplImage* channelRed = cvCreateImage(  cvGetSize(source), 8, 1);
-        IplImage* channelGreen = cvCreateImage(cvGetSize(source), 8, 1);
-	IplImage* channelBlue = cvCreateImage( cvGetSize(source), 8, 1);
-	cvSplit(source, channelBlue, channelGreen, channelRed, NULL);
-	// Red = red - (green + blue)
-	cvAdd(channelBlue, channelGreen, channelGreen);
-	cvSub(channelRed, channelGreen, channelRed);
-	cvThreshold( channelRed, channelRed , 10, 255, CV_THRESH_BINARY );
-
 	int width_step=result->widthStep;
-	int width_step2=channelRed->widthStep;
-	int pixel_step=result->widthStep/source->width;
+	int pixel_step=result->widthStep/result->width;
 	int number_channels=result->nChannels;
 	cvZero( result );
+
 	int row=0,col=0;
 	unsigned char white_pixel[4] = {255,0,0,0};
 	for (row=0; row < result->height; row++){
 		for (col=0; col < result->width; col++)
 		{
-			unsigned char* curr_point = GETPIXELPTRMACRO( channelRed, col, row, width_step2, 1);
-			//if ((curr_point[RED_CH] >= THRESHOLD) && ((curr_point[BLUE_CH] < THRESHOLD) || (curr_point[GREEN_CH] < THRESHOLD)))
-			if(*curr_point == 255){
-				PUTPIXELMACRO( result, col, row, white_pixel, width_step, pixel_step, number_channels );
-			}
+			
+			unsigned char* curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step);
+				if((curr_point[RED_CH] >= curr_point[GREEN_CH]) ||
+					(curr_point[RED_CH] >= curr_point[BLUE_CH])){
+					if((curr_point[RED_CH]-curr_point[BLUE_CH]) >= 15){
+						if((curr_point[RED_CH]-curr_point[GREEN_CH]) >= 19){
+								PUTPIXELMACRO( result, col, row, white_pixel, width_step, pixel_step, number_channels );
+						}
+					}
+				}
 		}
 	}
 	// Apply morphological opening and closing operations to clean up the image
-	//cvMorphologyEx( result, temp, NULL, NULL, CV_MOP_OPEN, 3 );
-	//cvMorphologyEx( temp, result, NULL, NULL, CV_MOP_CLOSE, 3 );
+	cvMorphologyEx( result, result, NULL, NULL, CV_MOP_CLOSE, 1);
+	cvMorphologyEx( result, result, NULL, NULL, CV_MOP_CLOSE, 2 );
 };
 /* Returns a CvSeq which is basically a list of 
  * Points which are connected
@@ -116,34 +112,25 @@ void invert_image( IplImage* source, IplImage* result )
 // Assumes a 1D histogram of 256 elements.
 int determine_optimal_threshold( CvHistogram* hist )
 {
-	// TO DO:  Given a 1-D CvHistogram you need to determine and return the optimal threshold value.
-
-	// NOTES:  Assume there are 256 elements in the histogram.
-	//         To get the histogram value at index i
-	//            int histogram_value_at_i = ((int) *cvGetHistValue_1D(hist, i));
-	
-	//return 127;  // Just so that the project will compile...
 	int curr = 127,old_curr=0;
 	while(curr != old_curr) {
 		int sum1=0, num1=0, sum2=0, num2=0, i=0;
-		for(;i<256;i++){
+		for(i=0;i<256;i++){
 			int val = ((int) *cvGetHistValue_1D(hist, i));
-			if(val > curr){
-				sum2+=val;num2++;
+			if(i > curr){
+				sum2+=(i*val);num2+=val;
 			}else{
-				sum1+=val;num1++;
+				sum1+=(i*val);num1+=val;
 			}
 		}
-		//printf("%d %d %d %d \n", sum1, num1, sum2, num2);
 		if(sum1 != 0 && num1 != 0)
-			sum1 = ((double)sum1)/num1;
+			sum1 = (int)(((double)sum1)/num1);
 		if(sum2 != 0 && num2 != 0)
-			sum2 = ((double)sum2)/num2;
+			sum2 = (int)(((double)sum2)/num2);
 		old_curr = curr;
-		curr = ((double)sum1 + sum2)/2;
+		curr = (int)(((double)sum1 + sum2)/2);
 	};
-	//printf("Found optimal %d\n", curr);
-	return 127;
+	return curr;
 }
 
 int is_zero(IplImage* mask_image) {
@@ -163,8 +150,6 @@ int is_zero(IplImage* mask_image) {
 
 void apply_threshold_with_mask(IplImage* grayscale_image,IplImage* result_image,IplImage* mask_image,int threshold)
 {
-	// TO DO:  Apply binary thresholding to those points in the passed grayscale_image which correspond to non-zero
-	//        points in the passed mask_image.  The binary results (0 or 255) should be stored in the result_image.
 	int width_step=mask_image->widthStep;
 	int pixel_step=mask_image->widthStep/mask_image->width;
 	int width_step2=result_image->widthStep;
@@ -172,12 +157,12 @@ void apply_threshold_with_mask(IplImage* grayscale_image,IplImage* result_image,
 	int number_channels=grayscale_image->nChannels;
 	int number_channels2=result_image->nChannels;
 	int row=0,col=0;
+	unsigned char black[] = {0,0,0};
+	unsigned char white[] = {255,255,255};
 	for(;row<mask_image->height;row++) {
 		for(col=0;col<mask_image->width;col++) {
 			unsigned char* mask_point = GETPIXELPTRMACRO( mask_image, col, row, width_step, pixel_step );
 			unsigned char* curr_point = GETPIXELPTRMACRO( grayscale_image, col, row, width_step, pixel_step );
-			unsigned char black[] = {0,0,0};
-			unsigned char white[] = {255,255,255};
 			int i=0;
 
 			if(*mask_point != 0){
