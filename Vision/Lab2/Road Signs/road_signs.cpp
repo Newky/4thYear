@@ -8,11 +8,14 @@
 #include <stdlib.h>
 #include "../utilities.h"
 
-#define THRESHOLD 50
 #define NUM_IMAGES 5
 
-int is_zero(IplImage* mask_image);
 // Locate the red pixels in the source image.
+/* My thinking behind finding the red points is	
+ * look for cases where Red >  Green && Red > Bluea
+ * Also the pixel values are red when there is a difference of more than 15 on blue
+ * and green. This is somewhat of a manual thresholding.
+ */
 void find_red_points( IplImage* source, IplImage* result, IplImage* temp )
 {
 	int width_step=result->widthStep;
@@ -41,6 +44,7 @@ void find_red_points( IplImage* source, IplImage* result, IplImage* temp )
 	cvMorphologyEx( result, result, NULL, NULL, CV_MOP_CLOSE, 1);
 	cvMorphologyEx( result, result, NULL, NULL, CV_MOP_CLOSE, 2 );
 };
+
 /* Returns a CvSeq which is basically a list of 
  * Points which are connected
  */
@@ -90,6 +94,8 @@ CvSeq* connected_components( IplImage* source, IplImage* result )
 	return contours;
 }
 
+/* Invert image simply cycles through each point and inverts the pixel
+ * by simply doing 255 - pixel value */
 void invert_image( IplImage* source, IplImage* result )
 {
 	int width_step=source->widthStep;
@@ -110,6 +116,9 @@ void invert_image( IplImage* source, IplImage* result )
 }
 
 // Assumes a 1D histogram of 256 elements.
+/* Uses the optimal thresholding algo
+ * as seen in class
+ */
 int determine_optimal_threshold( CvHistogram* hist )
 {
 	int curr = 127,old_curr=0;
@@ -132,22 +141,11 @@ int determine_optimal_threshold( CvHistogram* hist )
 	};
 	return curr;
 }
-
-int is_zero(IplImage* mask_image) {
-	int width_step=mask_image->widthStep;
-	int pixel_step=mask_image->widthStep/mask_image->width;
-	int number_channels=mask_image->nChannels;
-	int i=0, row=0, col=0;
-	for (row=0; row < mask_image->height; row++){
-		for (col=0; col < mask_image->width; col++){
-			unsigned char* curr_point = GETPIXELPTRMACRO( mask_image, col, row, width_step, pixel_step );
-			if(*curr_point != 0)
-				return *curr_point;
-		}
-	}
-	return 1;
-}
-
+/* The mask (1 channel) tells us what part of the grayscale (1 channel) are important
+ * We then check that greyscale pixel against the threshold
+ * if above white
+ * if below black
+ */
 void apply_threshold_with_mask(IplImage* grayscale_image,IplImage* result_image,IplImage* mask_image,int threshold)
 {
 	int width_step=mask_image->widthStep;
@@ -225,6 +223,7 @@ void determine_optimal_sign_classification( IplImage* original_image, IplImage* 
 		}
 		curr_red_region = curr_red_region->h_next;
 	}
+
 	for (row=0; row < result_image->height; row++)
 	{
 		unsigned char* curr_red = GETPIXELPTRMACRO( red_point_image, 0, row, width_step, pixel_step );
@@ -237,6 +236,7 @@ void determine_optimal_sign_classification( IplImage* original_image, IplImage* 
 				curr_result[2] = 255;
 		}
 	}
+
 	cvReleaseImage( &mask_image );
 }
 
