@@ -30,19 +30,20 @@ void find_red_points( IplImage* source, IplImage* result, IplImage* temp )
 		{
 			
 			unsigned char* curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step);
-				if((curr_point[RED_CH] >= curr_point[GREEN_CH]) ||
-					(curr_point[RED_CH] >= curr_point[BLUE_CH])){
-					if((curr_point[RED_CH]-curr_point[BLUE_CH]) >= 15){
-						if((curr_point[RED_CH]-curr_point[GREEN_CH]) >= 19){
-								PUTPIXELMACRO( result, col, row, white_pixel, width_step, pixel_step, number_channels );
+				if((curr_point[RED_CH] > curr_point[GREEN_CH])&& 
+					(curr_point[RED_CH] > curr_point[BLUE_CH])){
+					if(curr_point[RED_CH] >= 50){
+					if((curr_point[RED_CH]*.86 > curr_point[BLUE_CH])){
+						if((curr_point[RED_CH] *.86 > curr_point[GREEN_CH])){
+									PUTPIXELMACRO( result, col, row, white_pixel, width_step, pixel_step, number_channels );
 						}
+					}
 					}
 				}
 		}
 	}
 	// Apply morphological opening and closing operations to clean up the image
-	cvMorphologyEx( result, result, NULL, NULL, CV_MOP_CLOSE, 1);
-	cvMorphologyEx( result, result, NULL, NULL, CV_MOP_CLOSE, 2 );
+	cvMorphologyEx( result, result, NULL, NULL, CV_MOP_CLOSE, 1 );
 };
 
 /* Returns a CvSeq which is basically a list of 
