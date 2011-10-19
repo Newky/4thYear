@@ -28,12 +28,11 @@ void update_running_gaussian_averages( IplImage *current_frame, IplImage *averag
 			unsigned char* curr_point = GETPIXELPTRMACRO(current_frame, col, row, width_step, pixel_step );	
 			float *average_point= (float *) GETPIXELPTRMACRO(averages_image, col, row, width_step2, pixel_step2 );	
 			float *std_dev_point= (float *) GETPIXELPTRMACRO(stan_devs_image, col, row, width_step2, pixel_step2 );	
-			std_dev_point[0] = (ALPHA *((((int) curr_point[0]) - average_point[0])*(((int) curr_point[0]) - average_point[0]))) + (ONEMINUS * std_dev_point[0]); 
-			std_dev_point[1] = (ALPHA *((((int) curr_point[1]) - average_point[1])*(((int) curr_point[1]) - average_point[1]))) + (ONEMINUS * std_dev_point[1]); 
-			std_dev_point[2] = (ALPHA *((((int) curr_point[2]) - average_point[2])*(((int) curr_point[2]) - average_point[2]))) + (ONEMINUS * std_dev_point[2]); 
-			average_point[0] = (ALPHA * (int) curr_point[0]) + (ONEMINUS * average_point[0]);
-			average_point[1] = (ALPHA * (int) curr_point[1]) + (ONEMINUS * average_point[1]);
-			average_point[2] = (ALPHA * (int) curr_point[2]) + (ONEMINUS * average_point[2]);
+			int i=0;
+			for(i=0;i<3;i++)
+				std_dev_point[i] = (ALPHA *((((int) curr_point[i]) - average_point[i])*(((int) curr_point[i]) - average_point[i]))) + (ONEMINUS * std_dev_point[i]); 
+			for(i=0;i<3;i++)
+				average_point[i] = (ALPHA * (int) curr_point[i]) + (ONEMINUS * average_point[i]);
 		}
 	}
 }
