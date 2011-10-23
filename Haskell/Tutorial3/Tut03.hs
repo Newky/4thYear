@@ -12,9 +12,9 @@ calc path = do
 	handle <- openFile path ReadMode
 	contents <- hGetContents handle
 	putStr "Subtotals:\n" 
-	let x = map (\x -> foldr (+) 0 $ str2int $ words x ) $ lines contents
-	    total = sum x
-	putStr $ unwords $ map (\num -> show num) x
+	let subs = map (\x -> foldr (+) 0 $ str2int $ words x ) $ lines contents
+	    total = sum subs
+	putStr $ unwords $ map (\num -> show num) subs
 	putStr "\nTotals:\n"
 	putStrLn $ show total
 
