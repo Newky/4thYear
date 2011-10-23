@@ -28,10 +28,12 @@ checkop num stack
 	| num == "-" = doop (-) stack
 
 doop :: (Int -> Int -> Int) -> Stack -> IO b	
-doop f stack = xcl ((f op1 op2): stack')
-		where stack' = tail $ tail stack
-		      op1 = head(stack)
-		      op2 = head(tail(stack))
+doop f stack 
+		| length stack < 2 = xcl stack
+		| length stack >= 2 = xcl ((f op1 op2): stack')
+				      where stack' = tail $ tail stack
+					    op1 = head(stack)
+					    op2 = head(tail(stack))
 
 isOperator :: String -> Bool
 isOperator x = elem x ["*","+", "-"] 
