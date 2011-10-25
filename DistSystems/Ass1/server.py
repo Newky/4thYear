@@ -3,7 +3,9 @@ import xmlrpclib
 import os
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from config import read_in
-from files import ls
+from files import ls, root_dir
+
+
 
 def hello(name):
 	config = read_in(name)
@@ -12,10 +14,12 @@ def hello(name):
 	else:
 		return config["directories"]
 
+
 def mount(name, path):
 	config = read_in(name)
+	root = root_dir(path)
 	if config != {}:
-		if path in config["directories"]:
+		if root in config["directories"]:
 			return ls(path)
 		else:
 			return {
@@ -38,7 +42,7 @@ def function_setup():
 	return { 
 			"hello" : hello,
 			"mount" : mount,
-			"read" : read
+			"read" : read,
 		}
 
 

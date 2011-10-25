@@ -2,22 +2,52 @@
 import xmlrpclib
 import os
 
-name = "richy"
-proxy = xmlrpclib.ServerProxy("http://localhost:8080")
-directories = proxy.hello(name);
-files= proxy.mount(name, directories[0])
-for i in range(0, len(files)):
-	print "%d) %s" %(i, files[i])
-print "Select file to open:"
-i = raw_input("File no:")
-while i < len(files):
-	i = raw_input("No such file number, File no:")
-i = int(i)
-path = directories[0] + files[i]
-if os.path.exists(path):
-	open(path, "w").close()
+def cd(proxy, name, current_dir, args):
+	current_dir = current_dir + args
+	if current_dir[-1:] != "/":
+		current_dir += "/"
+	return [current_dir, "Changed to "+current_dir]
 
-with open(files[i], "wb") as handle:
-	handle.write(proxy.read(name, "%s" %(path) ).data)
+def ls(proxy, name, current_dir, args):
+	[directories, files] = proxy.mount(name, current_dir)
+	return [current_dir, ("\n".join(directories))+"\n\n"+("\n".join(files))]
+
+def less(proxy, name, current_dir, args):
+	path = current_dir + args
+	return [current_dir, proxy.read(name, "%s" %(path)).data]
+
+def helo(proxy, name):
+	directories = proxy.hello(name);
+	return directories
+
+def main():
+	name = os.environ["USER"]
+	proxy = xmlrpclib.ServerProxy("http://localhost:8080")
+	available = helo(proxy, name)
+	return (name, proxy, available[0])
+
+commands = {
+	"ls" : ls,
+	"less" : less,
+	"cd" : cd 
+   }
+
+
+if __name__ == "__main__":
+	(name, proxy, current_dir) = main()
+	cmd = raw_input(">>>")
+	while (cmd != "exit"):
+		cmd = cmd.strip()
+		parts = cmd.split(" ", 1)
+		if len(parts) == 1:
+			[core, args] = [parts[0], ""]
+		else:
+			[core, args] = parts
+		try:
+			[current_dir, msg] = commands[core](proxy, name, current_dir, args)
+			print msg
+		except KeyError:
+			pass	
+		cmd = raw_input(">>>")
 
 
