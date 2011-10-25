@@ -56,7 +56,7 @@ void determine_moving_points_using_running_gaussian_averages( IplImage *current_
 			unsigned char * mask = GETPIXELPTRMACRO(moving_mask_image, col, row, width_step, pixel_step );	
 			int i=0;
 			for(;i<3;i++){
-				if(abs(curr_point[i] - average_point[i]) > (K_VAL * (std_dev_point[i])))
+				if(abs(curr_point[i] - average_point[i]) > (K_VAL * sqrt(std_dev_point[i])))
 					mask[i] = 255;
 				else
 					mask[i] = 0;	
