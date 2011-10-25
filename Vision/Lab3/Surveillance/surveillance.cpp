@@ -14,23 +14,22 @@
 
 void update_running_gaussian_averages( IplImage *current_frame, IplImage *averages_image, IplImage *stan_devs_image )
 {
-	// TO-DO:  Update the average and standard deviation for each channel for each pixel based on the values in the
-	// current_frame
+	//Get the width step & pixel step of the current frame, these are 8 bit channel images.
 	int width_step=current_frame->widthStep;
 	int pixel_step=current_frame->widthStep/current_frame->width;
+	// Get the width step & pixel step of the average and stan_devs, these are 32 bit float
 	int width_step2=averages_image->widthStep;
 	int pixel_step2=averages_image->widthStep/averages_image->width;
-	int number_channels2=current_frame->nChannels;
 	int row=0,col=0;
-
 	for(;row<current_frame->height;row++){
 		for(col=0;col<current_frame->width;col++){
 			unsigned char* curr_point = GETPIXELPTRMACRO(current_frame, col, row, width_step, pixel_step );	
+			//Important that the average and std dev are extracted through float.
 			float *average_point= (float *) GETPIXELPTRMACRO(averages_image, col, row, width_step2, pixel_step2 );	
 			float *std_dev_point= (float *) GETPIXELPTRMACRO(stan_devs_image, col, row, width_step2, pixel_step2 );	
 			int i=0;
 			for(i=0;i<3;i++)
-				std_dev_point[i] = (ALPHA *((((int) curr_point[i]) - average_point[i])*(((int) curr_point[i]) - average_point[i]))) + (ONEMINUS * std_dev_point[i]); 
+				std_dev_point[i] = sqrt((ALPHA *((((int) curr_point[i]) - average_point[i])*(((int) curr_point[i]) - average_point[i]))) + (ONEMINUS * ((std_dev_point[i])*(std_dev_point[i]))));
 			for(i=0;i<3;i++)
 				average_point[i] = (ALPHA * (int) curr_point[i]) + (ONEMINUS * average_point[i]);
 		}
@@ -39,24 +38,22 @@ void update_running_gaussian_averages( IplImage *current_frame, IplImage *averag
 // 8 bit, 32 bit float, 32 bit float,  8 bit
 void determine_moving_points_using_running_gaussian_averages( IplImage *current_frame, IplImage *averages_image, IplImage *stan_devs_image, IplImage *moving_mask_image )
 {
-	// TO-DO:  Determine which pixels on each channel are "foreground" by considering the absolute difference in comparison
-	// with the standard deviation...
 	int width_step=current_frame->widthStep;
 	int width_step2=averages_image->widthStep;
 	int pixel_step=current_frame->widthStep/current_frame->width;
 	int pixel_step2=averages_image->widthStep/averages_image->width;
-	int number_channels=current_frame->nChannels;
 
 	int row=0,col=0;
 	for(;row<current_frame->height;row++){
 		for(col=0;col<current_frame->width;col++){
+			// Extract the relevant points from each of the images.
 			unsigned char* curr_point = GETPIXELPTRMACRO(current_frame, col, row, width_step, pixel_step );	
 			float *average_point= (float *) GETPIXELPTRMACRO(averages_image, col, row, width_step2, pixel_step2 );	
 			float *std_dev_point= (float *) GETPIXELPTRMACRO(stan_devs_image, col, row, width_step2, pixel_step2 );	
 			unsigned char * mask = GETPIXELPTRMACRO(moving_mask_image, col, row, width_step, pixel_step );	
 			int i=0;
 			for(;i<3;i++){
-				if(abs(curr_point[i] - average_point[i]) > (K_VAL * sqrt(std_dev_point[i])))
+				if(abs(curr_point[i] - average_point[i]) > (K_VAL * std_dev_point[i]))
 					mask[i] = 255;
 				else
 					mask[i] = 0;	
@@ -94,7 +91,7 @@ int main( int argc, char** argv )
 
 	// Ensure AVI opened properly
 	if( !capture )
-		return 1;    
+		return 2;    
     
 	// Get Frames Per Second in order to playback the video at the correct speed
 	int fps = ( int )cvGetCaptureProperty( capture, CV_CAP_PROP_FPS );
