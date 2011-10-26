@@ -3,9 +3,19 @@ import xmlrpclib
 import os
 
 def cd(proxy, name, current_dir, args):
-	current_dir = current_dir + args
-	if current_dir[-1:] != "/":
-		current_dir += "/"
+	if ".." in args:
+		number = args.count("..")
+		for i in range(0, number):
+			try:
+				#remove last slash
+				curr = current_dir[:-1]
+				current_dir = curr[:curr.rindex("/")+1]
+			except ValueError:
+				return [current_dir, "No access!"]
+	else:
+		current_dir = current_dir + args
+		if current_dir[-1:] != "/":
+			current_dir += "/"
 	return [current_dir, "Changed to "+current_dir]
 
 def ls(proxy, name, current_dir, args):
