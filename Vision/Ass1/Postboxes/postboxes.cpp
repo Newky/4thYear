@@ -8,7 +8,7 @@
 #include "highgui.h"
 #include "../utilities.h"
 
-#define VARIATION_ALLOWED_IN_PIXEL_VALUES 30
+#define VARIATION_ALLOWED_IN_PIXEL_VALUES 31
 #define ALLOWED_MOTION_FOR_MOTION_FREE_IMAGE 1.0
 #define NUMBER_OF_POSTBOXES 6
 #define MINIMUM_GRADIENT_VALUE 5
@@ -29,13 +29,52 @@ void indicate_post_in_box( IplImage* image, int postbox )
 	write_text_on_image(image,(PostboxLocations[postbox][POSTBOX_TOP_ROW]+PostboxLocations[postbox][POSTBOX_BOTTOM_ROW])/2+19,PostboxLocations[postbox][POSTBOX_LEFT_COLUMN]+2, "this box");
 }
 
+void sobel(IplImage* input_image, int row, int col, int width_step, int pixel_step) {
+	int mask[3][3] = {{1, 0, -1}, {2, 0, -2}, {1, 0, -1}};
+	int i=0;
+	int fd = 0;
+	for(;i<3;i++) {
+		int j=0;
+		for(;j<3;j++) {
+			if(!((row - (i - 2) < 0) && (row + (i - 2) >= input_image->height))){
+				if(!((col - (j - 2) < 0) && (col + (j - 2) >= input_image->width))){
+					int mod_row = row + (i - 2);
+					int mod_col = col + (j - 2);
+					unsigned char* curr_point = ((unsigned char *) input_image->imageData + (mod_row)*(width_step) + (mod_col));	
+					fd += (curr_point[0] * mask[i][j]);
+				}
+			}
+		}
+	}
+	unsigned char* curr_point = ((unsigned char *) input_image->imageData + (row)*(width_step) + (col));	
+	if(fd > 41) {
+		curr_point[0] = 255;	
+	}else if(fd < -40) {
+		curr_point[0] = 0;	
+	}else{
+		curr_point[0] = 127;	
+	}
+}
+
 void compute_vertical_edge_image(IplImage* input_image, IplImage* output_image)
 {
 	// TO-DO:  Compute the partial first derivative edge image in order to locate the vertical edges in the passed image,
 	//   and then determine the non-maxima suppressed version of these edges (along each row as the rows can be treated
 	//   independently as we are only considering vertical edges). Output the non-maxima suppressed edge image. 
 	// Note:   You may need to smooth the image first.
+	cvSmooth(input_image, output_image, CV_GAUSSIAN, 3, 3, 0);
+	int width_step=input_image->widthStep;
+	int pixel_step=input_image->widthStep/input_image->width;
+	int number_channels=input_image->nChannels;
+	int row=0,col=0;
+	for(;row < input_image->height; row ++) {
+		for(col = 0;col < input_image->width; col ++ ) {
+			sobel(input_image, row, col, width_step, pixel_step);
+		}
+	}
 }
+
+
 
 bool motion_free_frame(IplImage* current_frame, IplImage* previous_frame)
 {
@@ -111,9 +150,11 @@ int main( int argc, char** argv )
 			vertical_edge_image = cvCloneImage( corrected_frame );
 		}
 		check_postboxes( corrected_frame, labelled_image, vertical_edge_image );
-
+		IplImage *gframe= cvCreateImage( cvGetSize(current_frame),8, 1 );
+		cvConvertImage(current_frame, gframe);
+		compute_vertical_edge_image(gframe, gframe);
 		// Display the current frame and results of processing
-		cvShowImage( "Input video", current_frame );
+		cvShowImage( "Input video", gframe );
 		cvShowImage( "Vertical edges", vertical_edge_image );
 		cvShowImage( "Results", labelled_image );
 
