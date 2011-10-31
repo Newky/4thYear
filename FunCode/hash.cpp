@@ -6,6 +6,11 @@
 #include <vector>
 using namespace std;
 
+/* WordPair is a single word
+ * to many word pairs.
+ * Used to store the prefix and its
+ * many suffix's for the markov chain.
+ */
 class WordPair {
 	public:
 		WordPair(string, string);
@@ -14,16 +19,27 @@ class WordPair {
 		string word;
 		vector<string>* matches;
 };
-
+/* Constructor for WordPair
+ * Takes a string for word
+ * and the first string for the vector of strings
+ */
 WordPair::WordPair(string lh, string rh) {
 	this->word = lh;
 	this->matches = new vector<string>();
 	this->matches->push_back(rh);
 };
 
+/* Nothing here at the minute.
+ */
 WordPair::~WordPair() {
 };
 
+/* Other than storing more suffixes
+ * all we need is to get a random item
+ * from the vector.
+ * NOTE: if matches for some reason goes beyond
+ * INT_MAX, the bounds will default to 0 --> INT_MAX
+ */
 string WordPair::random_item() {
 	int size = (int) this->matches->size();
 	int n = rand() % size;
@@ -45,6 +61,9 @@ class Dict {
 
 /* Constructor for Dict
  * Initialise with an array size of n
+ * Each element of the array is a
+ * vector of WordPairs (actually a pointer to
+ * a vector of WordPairs.
  */
 Dict::Dict(int n) {
 	this->size = n;
@@ -53,11 +72,24 @@ Dict::Dict(int n) {
 	for(;i<this->size;i++)
 		this->values[i] = new vector<WordPair>();
 };
-
+/* Deconstruct each of the vectors.
+ * Deconstruct the array of vectors.
+ */
 Dict::~Dict() {
+	int i=0;
+	for(;i<this->size;i++)
+		delete this->values[i];
 	delete this->values;
 };
-
+/* Just a hash function
+ * Questionable how wonderful it is, 
+ * But as far as I know its similar to
+ * the hash code for hashing strings in
+ * Java.
+ * 31 is used because its prime. Its not widely
+ * known why primes give the best results 
+ * for hash functions.
+ */
 int Dict::hash(string key) {
 	int i = 0;
 	int res = 0;
@@ -79,10 +111,8 @@ void Dict::put(string key, string value) {
 	int x = this->hash(key);
 	vector<WordPair>* vwp = this->values[x];
 	if( vwp->size() == 0) {
-		printf("%d\n", x);
 		vwp->push_back(WordPair(key, value));
 	}else{
-		printf("Here %d\n", vwp->size());
 		vector<WordPair>::iterator it = vwp->begin();
 		int found = 0;
 		for(;it != vwp->end(); ++it) {
@@ -128,6 +158,8 @@ int main() {
 			printf("%s\n", it->c_str());
 		}
 	}
+	delete dict;
+	delete x;
 	return 0;
 }
 
