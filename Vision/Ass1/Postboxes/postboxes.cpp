@@ -16,6 +16,7 @@ int PostboxLocations[NUMBER_OF_POSTBOXES][5] = {
                                 {   6,  73,  95, 5, 92 }, {   6,  73,  95, 105, 192 },
                                 { 105, 158, 193, 5, 92 }, { 105, 158, 193, 105, 192 },
                                 { 204, 245, 292, 5, 92 }, { 204, 245, 292, 105, 192 } };
+IplImage * prev_frame;
 #define POSTBOX_TOP_ROW 0
 #define POSTBOX_TOP_BASE_ROW 1
 #define POSTBOX_BOTTOM_ROW 2
@@ -29,10 +30,16 @@ void indicate_post_in_box( IplImage* image, int postbox )
 	write_text_on_image(image,(PostboxLocations[postbox][POSTBOX_TOP_ROW]+PostboxLocations[postbox][POSTBOX_BOTTOM_ROW])/2+19,PostboxLocations[postbox][POSTBOX_LEFT_COLUMN]+2, "this box");
 }
 
-void sobel(IplImage* input_image, int row, int col, int width_step, int pixel_step) {
+void sobel(IplImage* input_image,IplImage*output_image, int row, int col){
+	int width_step=input_image->widthStep;
+	int pixel_step=input_image->widthStep/input_image->width;
+	int width_step2=output_image->widthStep;
+	int pixel_step2=output_image->widthStep/output_image->width;
 	int mask[3][3] = {{1, 0, -1}, {2, 0, -2}, {1, 0, -1}};
+	//int mask[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
 	int i=0;
 	int fd = 0;
+	
 	for(;i<3;i++) {
 		int j=0;
 		for(;j<3;j++) {
@@ -40,19 +47,20 @@ void sobel(IplImage* input_image, int row, int col, int width_step, int pixel_st
 				if(!((col - (j - 2) < 0) && (col + (j - 2) >= input_image->width))){
 					int mod_row = row + (i - 2);
 					int mod_col = col + (j - 2);
-					unsigned char* curr_point = ((unsigned char *) input_image->imageData + (mod_row)*(width_step) + (mod_col));	
+					unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(input_image, mod_col, mod_row, width_step, pixel_step);
 					fd += (curr_point[0] * mask[i][j]);
 				}
 			}
 		}
 	}
-	unsigned char* curr_point = ((unsigned char *) input_image->imageData + (row)*(width_step) + (col));	
-	if(fd > 41) {
-		curr_point[0] = 255;	
-	}else if(fd < -40) {
-		curr_point[0] = 0;	
+	unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(input_image, col, row, width_step2, pixel_step2);
+	fd = abs(fd);
+	if(fd > 40 ){
+		unsigned char red[] = {0,0,255,0};
+		PUTPIXELMACRO(output_image, col, row, red,width_step2, pixel_step2, output_image->nChannels);
 	}else{
-		curr_point[0] = 127;	
+		unsigned char black[] = {0,0,0,0};
+		PUTPIXELMACRO(output_image, col, row, black,width_step2, pixel_step2, output_image->nChannels);
 	}
 }
 
@@ -62,14 +70,16 @@ void compute_vertical_edge_image(IplImage* input_image, IplImage* output_image)
 	//   and then determine the non-maxima suppressed version of these edges (along each row as the rows can be treated
 	//   independently as we are only considering vertical edges). Output the non-maxima suppressed edge image. 
 	// Note:   You may need to smooth the image first.
-	cvSmooth(input_image, output_image, CV_GAUSSIAN, 3, 3, 0);
-	int width_step=input_image->widthStep;
-	int pixel_step=input_image->widthStep/input_image->width;
-	int number_channels=input_image->nChannels;
+	IplImage *gray_input= cvCreateImage( cvGetSize(input_image), 8, 1 );
+	cvConvertImage(input_image, gray_input);
+	cvSmooth(gray_input, gray_input, CV_GAUSSIAN, 3, 3, 0);
+	int width_step=gray_input->widthStep;
+	int pixel_step=gray_input->widthStep/gray_input->width;
+	int number_channels=gray_input->nChannels;
 	int row=0,col=0;
-	for(;row < input_image->height; row ++) {
-		for(col = 0;col < input_image->width; col ++ ) {
-			sobel(input_image, row, col, width_step, pixel_step);
+	for(;row < gray_input->height; row ++) {
+		for(col = 0;col < gray_input->width; col ++ ) {
+			sobel(gray_input, output_image, row, col);
 		}
 	}
 }
@@ -80,7 +90,28 @@ bool motion_free_frame(IplImage* current_frame, IplImage* previous_frame)
 {
 	// TO-DO:  Determine the percentage of the frames which have changed (by more than VARIATION_ALLOWED_IN_PIXEL_VALUES)
 	//        and return whether that percentage is less than ALLOWED_MOTION_FOR_MOTION_FREE_IMAGE.
-	return true;  // Just to allow the system to compile while the code is missing.
+	int width_step=current_frame->widthStep;
+	int pixel_step=current_frame->widthStep/current_frame->width;
+	int number_channels=current_frame->nChannels;
+	
+	int row=0,col=0;
+	int changed = 0;
+	for(;row < current_frame->height; row ++) {
+		for(col = 0;col < current_frame->width; col ++ ) {
+			unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(current_frame,col, row,width_step, pixel_step);
+			unsigned char* prev_point = (unsigned char *) GETPIXELPTRMACRO(previous_frame,col, row,width_step, pixel_step);
+			int i=0, sum1 =0, sum2=0;
+			for(;i<number_channels;i++){
+				sum1 += curr_point[i];
+				sum2 += prev_point[i];
+			}
+			changed += (abs(sum1 -sum2) > (VARIATION_ALLOWED_IN_PIXEL_VALUES*3));
+		}
+	}
+
+	int percentage = (((double) changed)/((double) current_frame->height * current_frame->width)) * 100;
+	printf("%d\n", percentage);
+	return (percentage < ALLOWED_MOTION_FOR_MOTION_FREE_IMAGE);
 }
 
 void check_postboxes(IplImage* input_image, IplImage* labelled_output_image, IplImage* vertical_edge_image )
@@ -88,6 +119,11 @@ void check_postboxes(IplImage* input_image, IplImage* labelled_output_image, Ipl
 	// TO-DO:  If the input_image is not motion free then do nothing.  Otherwise determine the vertical_edge_image and check
 	//        each postbox to see if there is mail (by analysing the vertical edges).  Highlight the edge points used during your
 	//        processing.  If there is post in a box indicate that there is on the labelled_output_image.
+	if(motion_free_frame(input_image, prev_frame)){
+		compute_vertical_edge_image(input_image, vertical_edge_image);
+	}else{
+		printf("Motion Detected\n");
+	}
 }
 
 
@@ -134,9 +170,10 @@ int main( int argc, char** argv )
 	// cursor over the image.
 	cvSetMouseCallback( "Input video", on_mouse_show_values, 0 );
 	window_name_for_on_mouse_show_values="Input video";
-
+	
 	while( user_clicked_key != ESC ) {
 		// Get current video frame
+		prev_frame = cvCloneImage(corrected_frame);
 		current_frame = cvQueryFrame( capture );
 		image_for_on_mouse_show_values=current_frame; // Assign image for mouse callback
 		if( !current_frame ) // No new frame available
@@ -146,17 +183,20 @@ int main( int argc, char** argv )
 
 		if (labelled_image == NULL)
 		{	// The first time around the loop create the image for processing
+			prev_frame = cvCloneImage(corrected_frame);
 			labelled_image = cvCloneImage( corrected_frame );
 			vertical_edge_image = cvCloneImage( corrected_frame );
 		}
 		check_postboxes( corrected_frame, labelled_image, vertical_edge_image );
-		IplImage *gframe= cvCreateImage( cvGetSize(current_frame),8, 1 );
-		cvConvertImage(current_frame, gframe);
-		compute_vertical_edge_image(gframe, gframe);
+
+		//IplImage *gframe= cvCreateImage( cvGetSize(corrected_frame),8, 1 );
+		//IplImage *outputframe= cvCreateImage( cvGetSize(corrected_frame),8, 3 );
+		//cvConvertImage(corrected_frame, gframe);
+		//compute_vertical_edge_image(gframe, outputframe);
 		// Display the current frame and results of processing
-		cvShowImage( "Input video", gframe );
-		cvShowImage( "Vertical edges", vertical_edge_image );
-		cvShowImage( "Results", labelled_image );
+		cvShowImage( "Input video", current_frame);
+		cvShowImage( "Vertical edges",vertical_edge_image);
+		cvShowImage( "Results",labelled_image);
 
 		// Wait for the delay between frames
 		user_clicked_key = (char) cvWaitKey( 1000 / fps );
