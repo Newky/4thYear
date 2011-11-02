@@ -16,6 +16,7 @@ int PostboxLocations[NUMBER_OF_POSTBOXES][5] = {
                                 {   6,  73,  95, 5, 92 }, {   6,  73,  95, 105, 192 },
                                 { 105, 158, 193, 5, 92 }, { 105, 158, 193, 105, 192 },
                                 { 204, 245, 292, 5, 92 }, { 204, 245, 292, 105, 192 } };
+int thresholds[NUMBER_OF_POSTBOXES] = {800, 700, 1100,1000,1000,1200};
 IplImage * prev_frame;
 #define POSTBOX_TOP_ROW 0
 #define POSTBOX_TOP_BASE_ROW 1
@@ -30,16 +31,12 @@ void indicate_post_in_box( IplImage* image, int postbox )
 	write_text_on_image(image,(PostboxLocations[postbox][POSTBOX_TOP_ROW]+PostboxLocations[postbox][POSTBOX_BOTTOM_ROW])/2+19,PostboxLocations[postbox][POSTBOX_LEFT_COLUMN]+2, "this box");
 }
 
-void sobel(IplImage* input_image,IplImage*output_image, int row, int col){
+int first_derivative_with_mask(IplImage* input_image, int row, int col, int mask[3][3]) {
 	int width_step=input_image->widthStep;
 	int pixel_step=input_image->widthStep/input_image->width;
-	int width_step2=output_image->widthStep;
-	int pixel_step2=output_image->widthStep/output_image->width;
-	int mask[3][3] = {{1, 0, -1}, {2, 0, -2}, {1, 0, -1}};
-	//int mask[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
 	int i=0;
 	int fd = 0;
-	
+	// Calculate first partial
 	for(;i<3;i++) {
 		int j=0;
 		for(;j<3;j++) {
@@ -53,9 +50,44 @@ void sobel(IplImage* input_image,IplImage*output_image, int row, int col){
 			}
 		}
 	}
-	unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(input_image, col, row, width_step2, pixel_step2);
-	fd = abs(fd);
-	if(fd > 40 ){
+	return fd;
+};
+
+int gradient(IplImage* input_image, int row, int col) {
+	int hmask[3][3] = {{1, 0, -1}, {2, 0, -2}, {1, 0, -1}};
+	int vmask[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
+	int fd1 = first_derivative_with_mask(input_image, row, col, hmask);
+	int fd2 = first_derivative_with_mask(input_image, row, col, vmask);
+	return sqrt(pow(fd1, 2)+ pow(fd2, 2));
+}
+
+void sobel(IplImage* input_image,IplImage*output_image, int row, int col){
+	//int width_step=input_image->widthStep;
+	//int pixel_step=input_image->widthStep/input_image->width;
+	int width_step2=output_image->widthStep;
+	int pixel_step2=output_image->widthStep/output_image->width;
+	int mask[3][3] = {{1, 0, -1}, {2, 0, -2}, {1, 0, -1}};
+	//int mask[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
+	//int i=0;
+	//int fd = 0;
+	//// Calculate first partial
+	//for(;i<3;i++) {
+		//int j=0;
+		//for(;j<3;j++) {
+			//if(!((row - (i - 2) < 0) && (row + (i - 2) >= input_image->height))){
+				//if(!((col - (j - 2) < 0) && (col + (j - 2) >= input_image->width))){
+					//int mod_row = row + (i - 2);
+					//int mod_col = col + (j - 2);
+					//unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(input_image, mod_col, mod_row, width_step, pixel_step);
+					//fd += (curr_point[0] * mask[i][j]);
+				//}
+			//}
+		//}
+	//}
+	//fd = abs(fd);
+	int fd = abs(first_derivative_with_mask(input_image, row, col, mask));
+	//printf("Gradient:%d\n", gradient(input_image, row, col));
+	if(fd> 90 ){
 		unsigned char red[] = {0,0,255,0};
 		PUTPIXELMACRO(output_image, col, row, red,width_step2, pixel_step2, output_image->nChannels);
 	}else{
@@ -110,7 +142,7 @@ bool motion_free_frame(IplImage* current_frame, IplImage* previous_frame)
 	}
 
 	int percentage = (((double) changed)/((double) current_frame->height * current_frame->width)) * 100;
-	printf("%d\n", percentage);
+	//printf("%d\n", percentage);
 	return (percentage < ALLOWED_MOTION_FOR_MOTION_FREE_IMAGE);
 }
 
@@ -121,8 +153,27 @@ void check_postboxes(IplImage* input_image, IplImage* labelled_output_image, Ipl
 	//        processing.  If there is post in a box indicate that there is on the labelled_output_image.
 	if(motion_free_frame(input_image, prev_frame)){
 		compute_vertical_edge_image(input_image, vertical_edge_image);
-	}else{
-		printf("Motion Detected\n");
+		int width_step=vertical_edge_image->widthStep;
+		int pixel_step=vertical_edge_image->widthStep/vertical_edge_image->width;
+		for(int pb=0;pb<6;pb++){
+			//#define POSTBOX_TOP_ROW 0
+			//#define POSTBOX_TOP_BASE_ROW 1
+			//#define POSTBOX_BOTTOM_ROW 2
+			//#define POSTBOX_LEFT_COLUMN 3
+			//#define POSTBOX_RIGHT_COLUMN 4
+			int *postbox = PostboxLocations[pb];
+			int row=postbox[POSTBOX_TOP_ROW],col=postbox[POSTBOX_LEFT_COLUMN], redcount=0;
+			for(;row < postbox[POSTBOX_BOTTOM_ROW]; row++) {
+				for(col=postbox[POSTBOX_LEFT_COLUMN];col < postbox[POSTBOX_RIGHT_COLUMN]; col++) {
+					unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(vertical_edge_image,col,row,width_step, pixel_step);
+					redcount += (curr_point[RED_CH] == 255);
+				}
+			}
+			printf("%d)%d, ", pb, redcount);
+			if(redcount < thresholds[pb]) 
+				indicate_post_in_box(labelled_output_image, pb);
+		}
+		printf("\n");
 	}
 }
 
@@ -187,6 +238,7 @@ int main( int argc, char** argv )
 			labelled_image = cvCloneImage( corrected_frame );
 			vertical_edge_image = cvCloneImage( corrected_frame );
 		}
+		labelled_image = cvCloneImage( corrected_frame );
 		check_postboxes( corrected_frame, labelled_image, vertical_edge_image );
 
 		//IplImage *gframe= cvCreateImage( cvGetSize(corrected_frame),8, 1 );
