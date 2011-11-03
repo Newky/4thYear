@@ -32,30 +32,34 @@ mergeTrees tree1 tree2
 -- Q1  Write an instance of Eq for BinTree (the derived one)
 --     (Leave this commented out in the final deliverable)
 -- instance (Eq a, Eq b) => Eq (BinTree a b) where
--- 	Branch a w x b == Branch c y z d = w == y && x == z && a == c && b == d
+	Branch a w x b == Branch c y z d = w == y && x == z && a == c && b == d
 -- 	Nil == Nil = True
 -- 	_ == _ = False
 -- 
 -- Q2  Write an instance of Show for BinTree
 
 instance (Show a, Show b) => Show (BinTree a b) where
- 	show (Branch a b c d) =  show a ++ show b ++ " |-> " ++ show c ++ ", " ++ show d 
+ 	show (Branch a b c d) =  "{" ++ show' a ++ show b ++ " |-> " ++ show c ++ ", " ++ show' d ++ "}"
 	show _ = []
+
+show' (Branch a b c d) = show' a ++ show b ++ " |-> " ++ show c ++ ", " ++ show' d
+show' _ = []
 
 -- Q3 Write an instance of Eq for BinTree that respects Show
 instance (Show a, Show b) => Eq (BinTree a b) where
-	a == b = show a == show b
+	a == b = tree2list a == tree2list b
 
 -- Q4 Design a Ordered Collection Class (OrdColl): none fuse
 class OrdColl a where 
 	fuse:: a->a->a
-	none:: a->a->a
+	none:: a
 
 -- Q5 Instantiate List as OrdColl
 
 instance (Ord a) => OrdColl [a] where
 	fuse a b = qsort $ a ++ b
-	none a b = []
+	none = []
+
 
 qsort (x:xs) = (qsort left) ++ [x] ++ (qsort right)
 	       where
@@ -66,6 +70,6 @@ qsort [] = []
 -- Q6 Instantiate BinTRee as OrdColl
  
 instance (Ord a, Ord b) => OrdColl (BinTree a b) where
-	fuse a b = list2tree $ qsort $ tree2list a ++ tree2list b
-	none _ _ = Nil
+	fuse a b = list2tree . qsort $ tree2list a ++ tree2list b
+	none  = Nil
   
