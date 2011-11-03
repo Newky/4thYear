@@ -32,7 +32,7 @@ mergeTrees tree1 tree2
 -- Q1  Write an instance of Eq for BinTree (the derived one)
 --     (Leave this commented out in the final deliverable)
 -- instance (Eq a, Eq b) => Eq (BinTree a b) where
-	Branch a w x b == Branch c y z d = w == y && x == z && a == c && b == d
+-- 	Branch a w x b == Branch c y z d = w == y && x == z && a == c && b == d
 -- 	Nil == Nil = True
 -- 	_ == _ = False
 -- 
@@ -46,7 +46,8 @@ show' (Branch a b c d) = show' a ++ show b ++ " |-> " ++ show c ++ ", " ++ show'
 show' _ = []
 
 -- Q3 Write an instance of Eq for BinTree that respects Show
-instance (Show a, Show b) => Eq (BinTree a b) where
+--
+instance (Eq a, Eq b) => Eq (BinTree a b) where
 	a == b = tree2list a == tree2list b
 
 -- Q4 Design a Ordered Collection Class (OrdColl): none fuse
