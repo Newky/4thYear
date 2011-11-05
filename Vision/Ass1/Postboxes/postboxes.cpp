@@ -16,8 +16,12 @@ int PostboxLocations[NUMBER_OF_POSTBOXES][5] = {
                                 {   6,  73,  95, 5, 92 }, {   6,  73,  95, 105, 192 },
                                 { 105, 158, 193, 5, 92 }, { 105, 158, 193, 105, 192 },
                                 { 204, 245, 292, 5, 92 }, { 204, 245, 292, 105, 192 } };
+
+/* Thresholds set up individually for each postbox.
+ * Getting these thresholds, I had to generate
+ * graphs based on the number of redpoints so 
+ * I could get a working threshold for the video.*/
 int thresholds[NUMBER_OF_POSTBOXES] = {305, 240, 420, 440, 400, 400};
-//bool post[NUMBER_OF_POSTBOXES] = {false, false, false, false, false, false};
 IplImage * prev_frame;
 #define POSTBOX_TOP_ROW 0
 #define POSTBOX_TOP_BASE_ROW 1
@@ -31,13 +35,15 @@ void indicate_post_in_box( IplImage* image, int postbox )
 	write_text_on_image(image,(PostboxLocations[postbox][POSTBOX_TOP_ROW]+PostboxLocations[postbox][POSTBOX_BOTTOM_ROW])/2,PostboxLocations[postbox][POSTBOX_LEFT_COLUMN]+2, "Post in");
 	write_text_on_image(image,(PostboxLocations[postbox][POSTBOX_TOP_ROW]+PostboxLocations[postbox][POSTBOX_BOTTOM_ROW])/2+19,PostboxLocations[postbox][POSTBOX_LEFT_COLUMN]+2, "this box");
 }
-
+/* Using a 3 X 3 Mask
+ * Generate a first derivate of the input image
+ * for the pixel pointed to by f(row, col)
+ */
 int first_derivative_with_mask(IplImage* input_image, int row, int col, int mask[3][3]) {
 	int width_step=input_image->widthStep;
 	int pixel_step=input_image->widthStep/input_image->width;
 	int i=0;
 	int fd = 0;
-	// Calculate first partial
 	for(;i<3;i++) {
 		int j=0;
 		for(;j<3;j++) {
@@ -53,15 +59,12 @@ int first_derivative_with_mask(IplImage* input_image, int row, int col, int mask
 	}
 	return fd;
 };
-
-int gradient(IplImage* input_image, int row, int col) {
-	int hmask[3][3] = {{1, 0, -1}, {2, 0, -2}, {1, 0, -1}};
-	int vmask[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
-	int fd1 = first_derivative_with_mask(input_image, row, col, hmask);
-	int fd2 = first_derivative_with_mask(input_image, row, col, vmask);
-	return sqrt(pow(fd1, 2)+ pow(fd2, 2));
-}
-
+/* This uses sobels technique on a single pixel
+ * in input image,f(row, col).
+ * It also stores the first derivative of the pixel
+ * in the fd_image which stores the first derivatives
+ * for the image.
+ */
 void sobel(IplImage* input_image,IplImage*output_image,IplImage*fd_image, int row, int col){
 	int width_step=fd_image->widthStep;
 	int pixel_step=fd_image->widthStep/fd_image->width;
@@ -81,13 +84,26 @@ void sobel(IplImage* input_image,IplImage*output_image,IplImage*fd_image, int ro
 	}
 }
 
+/* Given an output image, which already has edges denoted by 255
+ * in the red channel. and a first derivate image which contains the
+ * first derivative value for each pixel. Then for a certain row, col
+ * Do non maxima suppression as follows:
+ * We assume the orientation of the edges are 90 vertical angles.
+ * Meaning the orthogonal pairs are the pixels either side of it.
+ * the non maxima formula works as follows.
+ *
+ * Foreach i, j in image:
+ * 	if gradient(f(i, j)) < gradient(f(i, j-1)) || gradient(f(i, j+1)):
+ * 		f(i, j) = 0
+ *
+ * Through this method the thickness of the edges will be reduced.
+ */
 void non_maxima(IplImage * output_image, IplImage * fd_image, int row, int col) {
 	int width_step=fd_image->widthStep;
 	int pixel_step=fd_image->widthStep/fd_image->width;
 	int width_step2=output_image->widthStep;
 	int pixel_step2=output_image->widthStep/output_image->width;
 
-	
 	unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(output_image, col, row, width_step2, pixel_step2);
 	if(curr_point[RED_CH] == 255) {
 		unsigned char* fd_point = (unsigned char *) GETPIXELPTRMACRO(fd_image, col, row, width_step, pixel_step);
@@ -107,41 +123,51 @@ void non_maxima(IplImage * output_image, IplImage * fd_image, int row, int col) 
 		}
 	}
 }
-
+/* This is the function which determines where the edges are in
+ * the postboxes which can be used to detect post.
+ */
 void compute_vertical_edge_image(IplImage* input_image, IplImage* output_image)
 {
-	// TO-DO:  Compute the partial first derivative edge image in order to locate the vertical edges in the passed image,
-	//   and then determine the non-maxima suppressed version of these edges (along each row as the rows can be treated
-	//   independently as we are only considering vertical edges). Output the non-maxima suppressed edge image. 
-	// Note:   You may need to smooth the image first.
+	// Firstly we create a grayscale interpretation of the image
 	IplImage *gray_input= cvCreateImage( cvGetSize(input_image), 8, 1 );
-	// Store for the partial first derivate (vertical) of the image
-	IplImage *fd_image= cvCreateImage( cvGetSize(input_image), 8, 1 );
 	cvConvertImage(input_image, gray_input);
+	// Image (store) for the partial first derivate (vertical) of the image
+	IplImage *fd_image= cvCreateImage( cvGetSize(input_image), 8, 1 );
+	// Smooth the grayscale image, (This is to get rid of noise which might affect the
+	// image.
 	cvSmooth(gray_input, gray_input, CV_GAUSSIAN, 3, 3, 0);
+	// Get the width step and pixel step of the inputs. and number of channels.
 	int width_step=gray_input->widthStep;
 	int pixel_step=gray_input->widthStep/gray_input->width;
 	int number_channels=gray_input->nChannels;
+	/*For each f(i, j) in image
+	 *Do the sobel function on it, giving it the grayscale image
+	 * and a row and column and it will give out an
+	 * output image and a first derivative image.*/
 	int row=0,col=0;
 	for(;row < gray_input->height; row ++) {
 		for(col = 0;col < gray_input->width; col ++ ) {
 			sobel(gray_input, output_image,fd_image,  row, col);
 		}
 	}
+	/* We then need to loop through the image again, 
+	 * to do non-maxima suppression on the image.
+	 * The output image is used as both an input and an
+	 * output here.
+	 */
 	for(row=0;row < gray_input->height; row ++) {
 		for(col = 0;col < gray_input->width; col ++ ) {
 			non_maxima(output_image, fd_image, row, col);
 		}
 	}
-	//cvMorphologyEx(  output_image,output_image, NULL, NULL, CV_MOP_CLOSE,1 );
-}
+};
 
-
-
+/* This function determines whether or not there is movement in
+ * the video based on the number of pixels which have changed
+ * beyond a certain threshold constant. 
+ */
 bool motion_free_frame(IplImage* current_frame, IplImage* previous_frame)
 {
-	// TO-DO:  Determine the percentage of the frames which have changed (by more than VARIATION_ALLOWED_IN_PIXEL_VALUES)
-	//        and return whether that percentage is less than ALLOWED_MOTION_FOR_MOTION_FREE_IMAGE.
 	int width_step=current_frame->widthStep;
 	int pixel_step=current_frame->widthStep/current_frame->width;
 	int number_channels=current_frame->nChannels;
@@ -164,22 +190,16 @@ bool motion_free_frame(IplImage* current_frame, IplImage* previous_frame)
 	int percentage = (((double) changed)/((double) current_frame->height * current_frame->width)) * 100;
 	return (percentage < ALLOWED_MOTION_FOR_MOTION_FREE_IMAGE);
 }
-
+/* if no motion is detected in the
+ * frame then we can compute the vertical edges otherwise. do nothing.
+ */
 void check_postboxes(IplImage* input_image, IplImage* labelled_output_image, IplImage* vertical_edge_image )
 {
-	// TO-DO:  If the input_image is not motion free then do nothing.  Otherwise determine the vertical_edge_image and check
-	//        each postbox to see if there is mail (by analysing the vertical edges).  Highlight the edge points used during your
-	//        processing.  If there is post in a box indicate that there is on the labelled_output_image.
 	if(motion_free_frame(input_image, prev_frame)){
 		compute_vertical_edge_image(input_image, vertical_edge_image);
 		int width_step=vertical_edge_image->widthStep;
 		int pixel_step=vertical_edge_image->widthStep/vertical_edge_image->width;
 		for(int pb=0;pb<6;pb++){
-			//#define POSTBOX_TOP_ROW 0
-			//#define POSTBOX_TOP_BASE_ROW 1
-			//#define POSTBOX_BOTTOM_ROW 2
-			//#define POSTBOX_LEFT_COLUMN 3
-			//#define POSTBOX_RIGHT_COLUMN 4
 			int *postbox = PostboxLocations[pb];
 			int row=postbox[POSTBOX_TOP_ROW],col=postbox[POSTBOX_LEFT_COLUMN], redcount=0;
 			for(;row < postbox[POSTBOX_BOTTOM_ROW]; row++) {
@@ -193,7 +213,6 @@ void check_postboxes(IplImage* input_image, IplImage* labelled_output_image, Ipl
 		}
 	}
 }
-
 
 int main( int argc, char** argv )
 {
