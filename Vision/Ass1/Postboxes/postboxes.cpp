@@ -16,7 +16,8 @@ int PostboxLocations[NUMBER_OF_POSTBOXES][5] = {
                                 {   6,  73,  95, 5, 92 }, {   6,  73,  95, 105, 192 },
                                 { 105, 158, 193, 5, 92 }, { 105, 158, 193, 105, 192 },
                                 { 204, 245, 292, 5, 92 }, { 204, 245, 292, 105, 192 } };
-int thresholds[NUMBER_OF_POSTBOXES] = {800, 700, 1100,1000,1000,1200};
+int thresholds[NUMBER_OF_POSTBOXES] = {305, 240, 420, 440, 400, 400};
+//bool post[NUMBER_OF_POSTBOXES] = {false, false, false, false, false, false};
 IplImage * prev_frame;
 #define POSTBOX_TOP_ROW 0
 #define POSTBOX_TOP_BASE_ROW 1
@@ -61,38 +62,49 @@ int gradient(IplImage* input_image, int row, int col) {
 	return sqrt(pow(fd1, 2)+ pow(fd2, 2));
 }
 
-void sobel(IplImage* input_image,IplImage*output_image, int row, int col){
-	//int width_step=input_image->widthStep;
-	//int pixel_step=input_image->widthStep/input_image->width;
+void sobel(IplImage* input_image,IplImage*output_image,IplImage*fd_image, int row, int col){
+	int width_step=fd_image->widthStep;
+	int pixel_step=fd_image->widthStep/fd_image->width;
 	int width_step2=output_image->widthStep;
 	int pixel_step2=output_image->widthStep/output_image->width;
 	int mask[3][3] = {{1, 0, -1}, {2, 0, -2}, {1, 0, -1}};
-	//int mask[3][3] = {{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}};
-	//int i=0;
-	//int fd = 0;
-	//// Calculate first partial
-	//for(;i<3;i++) {
-		//int j=0;
-		//for(;j<3;j++) {
-			//if(!((row - (i - 2) < 0) && (row + (i - 2) >= input_image->height))){
-				//if(!((col - (j - 2) < 0) && (col + (j - 2) >= input_image->width))){
-					//int mod_row = row + (i - 2);
-					//int mod_col = col + (j - 2);
-					//unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(input_image, mod_col, mod_row, width_step, pixel_step);
-					//fd += (curr_point[0] * mask[i][j]);
-				//}
-			//}
-		//}
-	//}
-	//fd = abs(fd);
+	
 	int fd = abs(first_derivative_with_mask(input_image, row, col, mask));
-	//printf("Gradient:%d\n", gradient(input_image, row, col));
+	unsigned char fd_[] = {fd};
+	PUTPIXELMACRO(fd_image, col, row,fd_,width_step, pixel_step, fd_image->nChannels);
 	if(fd> 90 ){
 		unsigned char red[] = {0,0,255,0};
 		PUTPIXELMACRO(output_image, col, row, red,width_step2, pixel_step2, output_image->nChannels);
 	}else{
 		unsigned char black[] = {0,0,0,0};
 		PUTPIXELMACRO(output_image, col, row, black,width_step2, pixel_step2, output_image->nChannels);
+	}
+}
+
+void non_maxima(IplImage * output_image, IplImage * fd_image, int row, int col) {
+	int width_step=fd_image->widthStep;
+	int pixel_step=fd_image->widthStep/fd_image->width;
+	int width_step2=output_image->widthStep;
+	int pixel_step2=output_image->widthStep/output_image->width;
+
+	
+	unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(output_image, col, row, width_step2, pixel_step2);
+	if(curr_point[RED_CH] == 255) {
+		unsigned char* fd_point = (unsigned char *) GETPIXELPTRMACRO(fd_image, col, row, width_step, pixel_step);
+		if(col -1 > 0) {
+			unsigned char* to_the_left   = (unsigned char *) GETPIXELPTRMACRO(fd_image, col-1, row, width_step, pixel_step);
+			if(fd_point[0] < to_the_left[0]){
+				curr_point[RED_CH] = 0;
+				return;
+			}
+		}
+		if(col + 1 < fd_image->width) {
+			unsigned char* to_the_right = (unsigned char *) GETPIXELPTRMACRO(fd_image, col+1, row, width_step, pixel_step);
+			if(fd_point[0] < to_the_right[0]){
+				curr_point[RED_CH] = 0;
+				return;
+			}
+		}
 	}
 }
 
@@ -103,6 +115,8 @@ void compute_vertical_edge_image(IplImage* input_image, IplImage* output_image)
 	//   independently as we are only considering vertical edges). Output the non-maxima suppressed edge image. 
 	// Note:   You may need to smooth the image first.
 	IplImage *gray_input= cvCreateImage( cvGetSize(input_image), 8, 1 );
+	// Store for the partial first derivate (vertical) of the image
+	IplImage *fd_image= cvCreateImage( cvGetSize(input_image), 8, 1 );
 	cvConvertImage(input_image, gray_input);
 	cvSmooth(gray_input, gray_input, CV_GAUSSIAN, 3, 3, 0);
 	int width_step=gray_input->widthStep;
@@ -111,9 +125,15 @@ void compute_vertical_edge_image(IplImage* input_image, IplImage* output_image)
 	int row=0,col=0;
 	for(;row < gray_input->height; row ++) {
 		for(col = 0;col < gray_input->width; col ++ ) {
-			sobel(gray_input, output_image, row, col);
+			sobel(gray_input, output_image,fd_image,  row, col);
 		}
 	}
+	for(row=0;row < gray_input->height; row ++) {
+		for(col = 0;col < gray_input->width; col ++ ) {
+			non_maxima(output_image, fd_image, row, col);
+		}
+	}
+	//cvMorphologyEx(  output_image,output_image, NULL, NULL, CV_MOP_CLOSE,1 );
 }
 
 
@@ -142,7 +162,6 @@ bool motion_free_frame(IplImage* current_frame, IplImage* previous_frame)
 	}
 
 	int percentage = (((double) changed)/((double) current_frame->height * current_frame->width)) * 100;
-	//printf("%d\n", percentage);
 	return (percentage < ALLOWED_MOTION_FOR_MOTION_FREE_IMAGE);
 }
 
@@ -169,11 +188,9 @@ void check_postboxes(IplImage* input_image, IplImage* labelled_output_image, Ipl
 					redcount += (curr_point[RED_CH] == 255);
 				}
 			}
-			printf("%d)%d, ", pb, redcount);
 			if(redcount < thresholds[pb]) 
 				indicate_post_in_box(labelled_output_image, pb);
 		}
-		printf("\n");
 	}
 }
 
@@ -213,9 +230,9 @@ int main( int argc, char** argv )
 	cvNamedWindow( "Input video", 0 );
 	cvMoveWindow("Input video", 0, 0);
 	cvNamedWindow( "Vertical edges", 0 );
-	cvMoveWindow( "Vertical edges", 0, 360);
+	cvMoveWindow( "Vertical edges", 360, 0);
 	cvNamedWindow( "Results", 0 );
-	cvMoveWindow( "Results", 0, 720);
+	cvMoveWindow( "Results", 720, 0);
 
 	// Setup mouse callback on the original image so that the user can see image values as they move the
 	// cursor over the image.
