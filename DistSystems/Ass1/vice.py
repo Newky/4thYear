@@ -87,6 +87,15 @@ def read_file(name, path):
 			return xmlrpclib.Binary(handle.read())
 	return xmlrpclib.Binary("");
 
+def patch(name, path, lines):
+	print "Lol"
+	path = os.path.join("/home/"+name, path)
+	print path
+	if os.path.exists(path):
+		f = os.popen('echo \'%s\' | patch %s' %(lines, path))
+		print f.read()
+		return 0
+	return 1
 
 users = {}
 
@@ -98,10 +107,10 @@ if __name__ == "__main__":
 			"lookup": lookup,
 			"read": read_file,
 			"insert": insert,
-			"remove": remove
+			"remove": remove,
+			"patch" : patch
 		}
 	for k,v in functions.iteritems():
 		server.register_function(v, k)
-
 	server.serve_forever()
 

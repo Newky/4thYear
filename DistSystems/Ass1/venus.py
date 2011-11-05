@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import xmlrpclib
 import os
 import random
@@ -58,6 +57,7 @@ in a cache.
 Then some form of trigger will send back changes to the user
 Save two seperate cached file
 '''
+
 def read_file(name, path, proxy):
 	if build_dir(path) != None:
 		data = output_file(name, path, proxy)

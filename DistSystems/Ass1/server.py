@@ -5,18 +5,6 @@ from SimpleXMLRPCServer import SimpleXMLRPCServer
 from config import read_in
 from files import ls, root_dir
 
-'''
-Per user -->
-	Current Directory
-	Read Files
-	Write Files
-'''
-
-#class User:
-	#def __init__(self, name):
-		#self.config = read_in(name)
-	
-
 def hello(name):
 	config = read_in(name)
 	if config == {}:
@@ -48,11 +36,18 @@ def read(name, path):
 
 	return xmlrpclib.Binary("");
 
+def filehandle(name, path):
+	config = read_in(name)
+	if config != {}:
+		return open(path, "rb")
+	return None
+
 def function_setup():
 	return { 
 			"hello" : hello,
 			"mount" : mount,
 			"read" : read,
+			"filehandle": filehandle
 		}
 
 
