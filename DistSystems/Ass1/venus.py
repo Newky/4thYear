@@ -80,11 +80,14 @@ if __name__ == "__main__":
 	else:
 		server_addr = "http://localhost:8080/"
 	(name, proxy) =main(server_addr)
+	name = "ec2-user"
 	#read_random_file(name, proxy)
-	full_path = os.path.join(os.environ["HOME"], "test.txt");
+	full_path = os.path.join(os.path.join("/home", name), "test.txt");
 	#exit(proxy.insert(name,full_path));
 	#exit(proxy.remove(name,full_path));
 	read_file(name, full_path, proxy)
+	#print proxy
+	#print proxy.hello();
 	
 
 

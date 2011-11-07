@@ -27,15 +27,17 @@ class MyEventHandler(pyinotify.ProcessEvent):
 		if os.path.exists(event.pathname + ".cache"):
 			os.popen("diff %s %s > %s" %( event.pathname + ".cache", event.pathname,event.pathname + ".diff"))
 			try:	
+				lines = open(event.pathname + ".diff", "r").read();
 				try:
 					uncached = event.pathname[event.pathname.index("cached")+6:]
-					lines = open(event.pathname + ".diff", "r").read();
+					print "%s" %(uncached)
 					ret= self.proxy.patch(self.name, uncached, lines)
 					f = os.popen('patch %s -i %s' %(event.pathname + ".cache", event.pathname + ".diff"))
 				except ValueError:
-					print "Something went wrong."
-			except IOError:
-				print "Something went wrong."
+					print "Something went wrong with the Value."
+			except IOError as (errno, strerror):
+				print strerror
+				print "Something went wrong with the IO." + event.pathname
 
     def process_default(self, event):
         """
@@ -46,11 +48,14 @@ class MyEventHandler(pyinotify.ProcessEvent):
 
 def main():
 	name = os.environ["USER"]
-	proxy = xmlrpclib.ServerProxy("http://localhost:8080")
+	proxy = xmlrpclib.ServerProxy(SERVER_URL)
 	return (name, proxy)
 
 if __name__ == "__main__":
+	if len(sys.argv) > 1:
+		SERVER_URL = sys.argv[1]
 	(name, proxy) = main();
+	name = "ec2-user"
 	wm = pyinotify.WatchManager()
 	event_handler = MyEventHandler(name, proxy)
 	notifier = pyinotify.Notifier(wm, event_handler)
