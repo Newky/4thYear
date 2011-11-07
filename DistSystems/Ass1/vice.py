@@ -100,8 +100,11 @@ def patch(name, path, lines):
 users = {}
 
 if __name__ == "__main__":
-	HOST = "localhost"
-	PORT = 8080
+	if len(sys.argv) > 2:
+		(HOST, PORT) = sys.argv[1:3]
+	else:
+		HOST = "localhost"
+		PORT = 8080
 	server = SimpleXMLRPCServer((HOST, PORT))
 	functions = {
 			"lookup": lookup,

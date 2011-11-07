@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-import xmlrpclib
 import os
 import random
+import sys
+import xmlrpclib
 
 def outputter(name, proxy, path=None):
 	if path == None:
@@ -11,9 +12,9 @@ def outputter(name, proxy, path=None):
 def output_file(name, file_path, proxy):
 	return proxy.read(name, file_path).data
 
-def main():
+def main(addr):
 	name = os.environ["USER"]
-	proxy = xmlrpclib.ServerProxy("http://localhost:8080")
+	proxy = xmlrpclib.ServerProxy(addr)
 	return (name, proxy)
 
 def read_random_file(name, proxy):
@@ -69,13 +70,16 @@ def read_file(name, path, proxy):
 		fc.write(data)
 		f.close()
 		fc.close()
-
 	else:
 		return None
 
 
 if __name__ == "__main__":
-	(name, proxy) =main()
+	if len(sys.argv) > 1:
+		server_addr = sys.argv[1];
+	else:
+		server_addr = "http://localhost:8080/"
+	(name, proxy) =main(server_addr)
 	#read_random_file(name, proxy)
 	full_path = os.path.join(os.environ["HOME"], "test.txt");
 	#exit(proxy.insert(name,full_path));
