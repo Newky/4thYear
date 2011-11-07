@@ -88,7 +88,7 @@ def read_file(name, path):
 	return xmlrpclib.Binary("");
 
 def patch(name, path, lines):
-	print "Lol"
+	print "{0} {1}".format(name, path)
 	path = os.path.join("/home/"+name, path)
 	print path
 	if os.path.exists(path):
@@ -97,16 +97,22 @@ def patch(name, path, lines):
 		return 0
 	return 1
 
+def hello():
+	print "Returned Hello"
+	return "Hello"
+
 users = {}
 
 if __name__ == "__main__":
 	if len(sys.argv) > 2:
 		(HOST, PORT) = sys.argv[1:3]
+		PORT = int(PORT)
 	else:
 		HOST = "localhost"
 		PORT = 8080
 	server = SimpleXMLRPCServer((HOST, PORT))
 	functions = {
+			"hello": hello,
 			"lookup": lookup,
 			"read": read_file,
 			"insert": insert,
