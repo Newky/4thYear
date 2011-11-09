@@ -18,6 +18,14 @@ class MyEventHandler(pyinotify.ProcessEvent):
 	self.proxy = proxy
         self._file_object = file_object
 
+    def process_IN_OPEN(self, event):
+	print "A file was opened"
+	if os.path.exists(event.pathname):
+		if proxy.valid(name, event.pathname):
+			pass
+		else:
+			print "Ugh"
+
     def process_IN_CLOSE_WRITE(self, event):
 	"""
 	what happens when you write something
@@ -59,5 +67,6 @@ if __name__ == "__main__":
 	wm = pyinotify.WatchManager()
 	event_handler = MyEventHandler(name, proxy)
 	notifier = pyinotify.Notifier(wm, event_handler)
-	wm.add_watch("cached/", pyinotify.IN_CLOSE_WRITE, rec=True)
+	mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_OPEN
+	wm.add_watch("cached/", mask, rec=True)
 	notifier.loop()

@@ -78,16 +78,13 @@ def remove(name, file_name):
 		return 1
 
 def read_file(name, path):
-	if name in users:
-		users[name].append(path)
-	else:
-		users[name] = [path]
 	if os.path.exists(path):
 		with open(path, "rb") as handle:
 			return xmlrpclib.Binary(handle.read())
 	return xmlrpclib.Binary("");
 
 def patch(name, path, lines):
+	in_valid_files.append(path);
 	print "{0} {1}".format(name, path)
 	path = os.path.join("/home/"+name, path)
 	print path
@@ -97,11 +94,19 @@ def patch(name, path, lines):
 		return 0
 	return 1
 
+def valid(name, path):
+	try:
+		in_valid_files.index(path)
+	except ValueError:
+		return True;
+	return False;
+
 def hello():
 	print "Returned Hello"
 	return "Hello"
 
 users = {}
+in_valid_files = [];
 
 if __name__ == "__main__":
 	if len(sys.argv) > 2:
@@ -117,7 +122,8 @@ if __name__ == "__main__":
 			"read": read_file,
 			"insert": insert,
 			"remove": remove,
-			"patch" : patch
+			"patch" : patch,
+			"valid" : valid
 		}
 	for k,v in functions.iteritems():
 		server.register_function(v, k)
