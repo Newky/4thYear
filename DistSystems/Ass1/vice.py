@@ -84,7 +84,9 @@ def read_file(name, path):
 	return xmlrpclib.Binary("");
 
 def patch(name, path, lines):
+	global in_valid_files
 	in_valid_files.append(path);
+	print in_valid_files
 	print "{0} {1}".format(name, path)
 	path = os.path.join("/home/"+name, path)
 	print path
@@ -95,8 +97,10 @@ def patch(name, path, lines):
 	return 1
 
 def valid(name, path):
+	global in_valid_files
+	print "Server Side: %s" %(",".join(in_valid_files))
 	try:
-		in_valid_files.index(path)
+		x = in_valid_files.index(path)
 	except ValueError:
 		return True;
 	return False;

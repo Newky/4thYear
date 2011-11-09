@@ -19,9 +19,11 @@ class MyEventHandler(pyinotify.ProcessEvent):
         self._file_object = file_object
 
     def process_IN_OPEN(self, event):
-	print "A file was opened"
 	if os.path.exists(event.pathname):
-		if proxy.valid(name, event.pathname):
+		if os.path.isdir(event.pathname):
+			pass	
+		elif proxy.valid(name, event.pathname):
+			print "A file was opened because it was valid. (%s)" %(event.pathname)
 			pass
 		else:
 			print "Ugh"
@@ -63,7 +65,7 @@ if __name__ == "__main__":
 	if len(sys.argv) > 1:
 		SERVER_URL = sys.argv[1]
 	(name, proxy) = main();
-	name = "ec2-user"
+	#name = "ec2-user"
 	wm = pyinotify.WatchManager()
 	event_handler = MyEventHandler(name, proxy)
 	notifier = pyinotify.Notifier(wm, event_handler)
