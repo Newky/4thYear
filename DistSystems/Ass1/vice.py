@@ -104,14 +104,19 @@ def patch(name, path, lines, uniq_id):
 		return 0
 	return 1
 
-def valid(name, path, uniq_id):
-	global in_valid_files
-	print "Server Side: %s -> %s" %(",".join(in_valid_files), path)
+def valid(name, path, uniq_id, mtime):
+	#global in_valid_files
+	#print "Server Side: %s -> %s" %(",".join(in_valid_files), path)
+	#try:
+		#id = in_valid_files.get(path)
+		#return (id == uniq_id) 
+	#except KeyError:
+		#return True
 	try:
-		id = in_valid_files.get(path)
-		return (id == uniq_id) 
-	except KeyError:
-		return True
+		server_mtime = os.path.getmtime(path)
+		return (server_mtime > mtime)
+	except OSError:
+		return False;
 def hello():
 	print "Returned Hello"
 	return "Hello"

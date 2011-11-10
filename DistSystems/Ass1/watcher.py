@@ -8,7 +8,7 @@ from hashlib import sha1
 SERVER_URL = "http://localhost:8080/"
 
 class MyEventHandler(pyinotify.ProcessEvent):
-    def __init__(self, name, proxy, uniq_id file_object=sys.stdout):
+    def __init__(self, name, proxy, uniq_id,file_object=sys.stdout):
         """
         This is your constructor it is automatically called from ProcessEvent.__init__(),
         And extra arguments passed to __init__() would be delegated automatically to 
@@ -28,7 +28,8 @@ class MyEventHandler(pyinotify.ProcessEvent):
 		if os.path.isdir(event.pathname):
 			pass	
 		elif cached in self.open_files:
-			if proxy.valid(name, uncached, self.uniq_id):
+			mtime = os.path.getmtime(cached)
+			if proxy.valid(name, uncached, self.uniq_id, mtime):
 				print "A file was opened because it was valid. (%s)" %(event.pathname)
 				pass
 			else:
