@@ -85,20 +85,27 @@ def read_file(name, path):
 
 def patch(name, path, lines):
 	global in_valid_files
-	in_valid_files.append(path);
+	try:
+		x = in_valid_files.index(path)
+	except ValueError:
+		in_valid_files.append(path);
 	print in_valid_files
 	print "{0} {1}".format(name, path)
 	path = os.path.join("/home/"+name, path)
+	diffpath = path + ".diff"
+	f = open(diffpath, "wb")
+	f.write(lines)
+	f.close()
 	print path
 	if os.path.exists(path):
-		f = os.popen('echo \'%s\' | patch %s' %(lines, path))
+		f = os.popen('patch %s -i %s' %(path, diffpath))
 		print f.read()
 		return 0
 	return 1
 
 def valid(name, path):
 	global in_valid_files
-	print "Server Side: %s" %(",".join(in_valid_files))
+	print "Server Side: %s -> %s" %(",".join(in_valid_files), path)
 	try:
 		x = in_valid_files.index(path)
 	except ValueError:
