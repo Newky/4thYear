@@ -83,12 +83,13 @@ def read_file(name, path):
 			return xmlrpclib.Binary(handle.read())
 	return xmlrpclib.Binary("");
 
-def patch(name, path, lines):
+def patch(name, path, lines, uniq_id):
 	global in_valid_files
 	try:
 		x = in_valid_files.index(path)
-	except ValueError:
-		in_valid_files.append(path);
+		in_valid_files[path] = uniq_id
+	except KeyError:
+		in_valid_files[path] = uniq_id;
 	print in_valid_files
 	print "{0} {1}".format(name, path)
 	path = os.path.join("/home/"+name, path)
@@ -103,21 +104,20 @@ def patch(name, path, lines):
 		return 0
 	return 1
 
-def valid(name, path):
+def valid(name, path, uniq_id):
 	global in_valid_files
 	print "Server Side: %s -> %s" %(",".join(in_valid_files), path)
 	try:
-		x = in_valid_files.index(path)
-	except ValueError:
-		return True;
-	return False;
-
+		id = in_valid_files.get(path)
+		return (id == uniq_id) 
+	except KeyError:
+		return True
 def hello():
 	print "Returned Hello"
 	return "Hello"
 
 users = {}
-in_valid_files = [];
+in_valid_files = {};
 
 if __name__ == "__main__":
 	if len(sys.argv) > 2:

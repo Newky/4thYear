@@ -3,11 +3,12 @@ import os
 import pyinotify
 import sys
 import xmlrpclib
+from hashlib import sha1
 
 SERVER_URL = "http://localhost:8080/"
 
 class MyEventHandler(pyinotify.ProcessEvent):
-    def __init__(self, name, proxy, file_object=sys.stdout):
+    def __init__(self, name, proxy, uniq_id file_object=sys.stdout):
         """
         This is your constructor it is automatically called from ProcessEvent.__init__(),
         And extra arguments passed to __init__() would be delegated automatically to 
@@ -17,16 +18,21 @@ class MyEventHandler(pyinotify.ProcessEvent):
 	self.name = name
 	self.proxy = proxy
         self._file_object = file_object
+	self.open_files = list_of_open()
+	self.uniq_id = uniq_id
 
     def process_IN_OPEN(self, event):
 	if os.path.exists(event.pathname):
+		uncached = event.pathname[event.pathname.index("cached")+6:]
+		cached= "cached" + uncached
 		if os.path.isdir(event.pathname):
 			pass	
-		elif proxy.valid(name, event.pathname):
-			print "A file was opened because it was valid. (%s)" %(event.pathname)
-			pass
-		else:
-			print "Ugh"
+		elif cached in self.open_files:
+			if proxy.valid(name, uncached, self.uniq_id):
+				print "A file was opened because it was valid. (%s)" %(event.pathname)
+				pass
+			else:
+				print "File not valid"
 
     def process_IN_CLOSE_WRITE(self, event):
 	"""
@@ -41,7 +47,7 @@ class MyEventHandler(pyinotify.ProcessEvent):
 				try:
 					uncached = event.pathname[event.pathname.index("cached")+6:]
 					print "%s" %(uncached)
-					ret= self.proxy.patch(self.name, uncached, lines)
+					ret= self.proxy.patch(self.name, uncached, lines, self.uniq_id)
 					f = os.popen('patch %s -i %s' %(event.pathname + ".cache", event.pathname + ".diff"))
 				except ValueError:
 					print "Something went wrong with the Value."
@@ -56,18 +62,32 @@ class MyEventHandler(pyinotify.ProcessEvent):
         """
         self._file_object.write('default processing\n')
 
+def list_of_open(path = "cached/"):
+	files = []
+	for dirname, dirnames, filenames in os.walk(path):
+		for file_name in filenames:
+			if not ".cache" in file_name:
+				if not ".diff" in file_name:
+					files.append(os.path.join(dirname, file_name))
+	return files
+
+				
+
 def main():
-	name = os.environ["USER"]
 	proxy = xmlrpclib.ServerProxy(SERVER_URL)
-	return (name, proxy)
+	return proxy 
+
 
 if __name__ == "__main__":
+	name = os.environ["USER"]
 	if len(sys.argv) > 1:
 		SERVER_URL = sys.argv[1]
-	(name, proxy) = main();
-	#name = "ec2-user"
+		if len(sys.argv) > 2:
+			name = sys.argv[2]
+	proxy = main()
+	uniq_id = sha1(os.environ["HOME"]).hexdigest()
 	wm = pyinotify.WatchManager()
-	event_handler = MyEventHandler(name, proxy)
+	event_handler = MyEventHandler(name, proxy, uniq_id)
 	notifier = pyinotify.Notifier(wm, event_handler)
 	mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_OPEN
 	wm.add_watch("cached/", mask, rec=True)
