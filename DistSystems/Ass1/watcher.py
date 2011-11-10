@@ -28,7 +28,8 @@ class MyEventHandler(pyinotify.ProcessEvent):
 		if os.path.isdir(event.pathname):
 			pass	
 		elif cached in self.open_files:
-			mtime = os.path.getmtime(cached)
+			mtime = os.path.getmtime(cached + ".cache")
+			print "Modified Time of (%s) is (%f)" %(cached, mtime)
 			if proxy.valid(name, uncached, self.uniq_id, mtime):
 				print "A file was opened because it was valid. (%s)" %(event.pathname)
 				pass
