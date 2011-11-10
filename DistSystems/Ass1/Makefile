@@ -17,4 +17,4 @@ vice:
 clean:
 	rm -r cached/
 watcher:
-	python watcher ${URL}
+	python watcher.py ${URL} ${USERNAME}
