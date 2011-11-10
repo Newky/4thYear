@@ -84,13 +84,13 @@ def read_file(name, path):
 	return xmlrpclib.Binary("");
 
 def patch(name, path, lines, uniq_id):
-	global in_valid_files
-	try:
-		x = in_valid_files.index(path)
-		in_valid_files[path] = uniq_id
-	except KeyError:
-		in_valid_files[path] = uniq_id;
-	print in_valid_files
+	#global in_valid_files
+	#try:
+		#x = in_valid_files.index(path)
+		#in_valid_files[path] = uniq_id
+	#except KeyError:
+		#in_valid_files[path] = uniq_id;
+	#print in_valid_files
 	print "{0} {1}".format(name, path)
 	path = os.path.join("/home/"+name, path)
 	diffpath = path + ".diff"
@@ -114,7 +114,8 @@ def valid(name, path, uniq_id, mtime):
 		#return True
 	try:
 		server_mtime = os.path.getmtime(path)
-		return (server_mtime > mtime)
+		print "Server MTIME is %f" %(server_mtime)
+		return (server_mtime < mtime)
 	except OSError:
 		return False;
 def hello():
