@@ -19,6 +19,7 @@ class MyEventHandler(pyinotify.ProcessEvent):
 	self.proxy = proxy
         self._file_object = file_object
 	self.open_files = list_of_open()
+	self.processing= []
 	self.uniq_id = uniq_id
 
     def process_IN_OPEN(self, event):
@@ -29,11 +30,25 @@ class MyEventHandler(pyinotify.ProcessEvent):
 			pass	
 		elif cached in self.open_files:
 			mtime = os.path.getmtime(cached + ".cache")
-			print "Modified Time of (%s) is (%f)" %(cached, mtime)
-			if proxy.valid(name, uncached, self.uniq_id, mtime):
+			if self.proxy.valid(name, uncached, self.uniq_id, mtime):
 				print "A file was opened because it was valid. (%s)" %(event.pathname)
 				pass
+			elif cached in self.processing:
+				pass
 			else:
+				self.processing.append(cached)
+				try:
+					f = open(cached+".diff", "w");
+					data = self.proxy.read(self.name, cached+".diff").data
+					f.write( data )
+					f.close()
+					os.popen('patch %s -i %s' %(cached, cached + ".diff"))
+				except OSError:
+					print "error"
+					self.processing.remove(cached)
+				except IOError:
+					print "IOerror"
+					self.processing.remove(cached)
 				print "File not valid"
 
     def process_IN_CLOSE_WRITE(self, event):
