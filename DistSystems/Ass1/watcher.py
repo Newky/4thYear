@@ -39,7 +39,7 @@ class MyEventHandler(pyinotify.ProcessEvent):
 				self.processing.append(cached)
 				try:
 					f = open(cached+".diff", "w")
-					data = self.proxy.read(self.name, cached + ".diff")
+					data = self.proxy.read(self.name, cached + ".diff").data
 					f.write( data )
 					f.close()
 					os.popen('patch %s -i %s' %(cached, cached + ".diff"))
