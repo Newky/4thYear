@@ -38,32 +38,32 @@ class MyEventHandler(pyinotify.ProcessEvent):
 			else:
 				self.processing.append(cached)
 				try:
-					f = open(cached+".diff", "w")
-					data = self.proxy.read(self.name, cached + ".diff")
+					print "Attempting to update the file %s" %(cached)
+					f = open(cached+".diff", "wb")
+					data = self.proxy.read(self.name, cached + ".diff").data
 					f.write( data )
 					f.close()
-					os.popen('patch %s -i %s' %(cached, cached + ".diff"))
+					os.popen('patch %s -i %s' %(cached + ".cache", cached + ".diff"))
 				except OSError:
 					print "error"
 					self.processing.remove(cached)
 				except IOError:
 					print "IOerror"
 					self.processing.remove(cached)
-				print "File not valid"
 
     def process_IN_CLOSE_WRITE(self, event):
 	"""
 	what happens when you write something
 	"""
-	print "Fired"
 	if os.path.exists(event.pathname):
 		if os.path.exists(event.pathname + ".cache"):
+			print "Fired %s" %(event.pathname)
 			os.popen("diff %s %s > %s" %( event.pathname + ".cache", event.pathname,event.pathname + ".diff"))
 			try:	
 				lines = open(event.pathname + ".diff", "r").read();
 				try:
 					uncached = event.pathname[event.pathname.index("cached")+6:]
-					print "%s" %(uncached)
+					print "Trying to patch %s" %(uncached)
 					ret= self.proxy.patch(self.name, uncached, lines, self.uniq_id)
 					f = os.popen('patch %s -i %s' %(event.pathname + ".cache", event.pathname + ".diff"))
 				except ValueError:
