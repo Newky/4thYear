@@ -24,8 +24,9 @@ class MyEventHandler(pyinotify.ProcessEvent):
 	self.name = name
 	self.proxy = proxy
         self._file_object = file_object
-	#self.open_files = list_of_open()
-	self.open_files =[] 
+	self.open_files = list_of_open()
+	#propagation delay in seconds.
+	self.prop_delay = 2;
 	self.processing= []
 	self.uniq_id = uniq_id
 	self.timeout = 10.0
@@ -47,21 +48,19 @@ class MyEventHandler(pyinotify.ProcessEvent):
 	self.t = Timer(self.timeout, self.poll)
 	self.t.setDaemon(True)
 	self.t.start()
-	#files = [ x for (x, y) in check]
 	files= check.keys()
 	print check 
 	server_files = self.proxy.valid(self.name, files)
 	print server_files
-	for (k, v) in check.iteritems():
-		if v < server_files[k]:
+	for k, v in check.iteritems():
+		if (v + self.prop_delay) < server_files[k]:
 			print "%s needs updating" %(k)
 			cached = "cached" + k
 			f = open(cached+".diff", "wb")
-			data = self.proxy.read(self.name, cached + ".diff").data
+			data = self.proxy.read(self.name, k+ ".diff").data
 			f.write( data )
 			f.close()
-			os.popen('patch %s -i %s' %(cached + ".cache", cached + ".diff"))
-
+			os.popen('patch %s -i %s && cp %s %s' %(cached , cached + ".diff", cached, cached + ".cache"))
 			
 		
 
