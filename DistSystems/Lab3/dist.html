@@ -1,0 +1,31 @@
+<html>
+	<head>
+		<title> Dist Systems Tutorial 4 </title>
+		<script type="text/javascript">
+			function display_name(user) {
+				var els = ["name", "gender", "link"];
+				for(var i=0;i<els.length;i++)
+					document.getElementById(els[i]).innerHTML = user[els[i]];
+			}
+
+			function init() {
+				if(location.hash === "") {
+					window.location ="https://www.facebook.com/dialog/oauth?client_id=218922181512272&redirect_uri=http://richydelaney.com/dist.html&response_type=token";
+				}else{
+					var parts = location.hash.split("&")
+					var field1 = parts[0].split("=");
+					var url="https://graph.facebook.com/me?access_token="+field1[1]+"&callback=display_name";
+					var script = document.createElement("script");
+					script.type= "text/javascript";
+					script.src = url;
+					document.body.appendChild(script);
+				}
+			}
+		</script>
+	</head>
+	<body onload="init();">
+		<i>My Name is ...</i><h1 id='name'></h1>
+		<i>My Gender is ...</i><h1 id='gender'></h1>
+		<i>My Facebook URL is ...</i><h1 id='link'></h1>
+	</body>
+</html>
