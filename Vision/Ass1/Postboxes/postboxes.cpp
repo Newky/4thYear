@@ -19,10 +19,14 @@ int PostboxLocations[NUMBER_OF_POSTBOXES][5] = {
 
 /* Thresholds set up individually for each postbox.
  * Getting these thresholds, I had to generate
- * graphs based on the number of redpoints so 
- * I could get a working threshold for the video.*/
-int thresholds[NUMBER_OF_POSTBOXES] = {305, 240, 420, 440, 400, 400};
+ * graphs based on the number of lines usual  in each postbox 
+ * The values vary because of lighting, and different things.*/
+int thresholds[NUMBER_OF_POSTBOXES] ={15,11,9,13,14,12};
+/* A global pointer to the previous frame
+ * and the previous output frame.
+ */
 IplImage * prev_frame;
+IplImage * prev_output_frame;
 #define POSTBOX_TOP_ROW 0
 #define POSTBOX_TOP_BASE_ROW 1
 #define POSTBOX_BOTTOM_ROW 2
@@ -35,6 +39,7 @@ void indicate_post_in_box( IplImage* image, int postbox )
 	write_text_on_image(image,(PostboxLocations[postbox][POSTBOX_TOP_ROW]+PostboxLocations[postbox][POSTBOX_BOTTOM_ROW])/2,PostboxLocations[postbox][POSTBOX_LEFT_COLUMN]+2, "Post in");
 	write_text_on_image(image,(PostboxLocations[postbox][POSTBOX_TOP_ROW]+PostboxLocations[postbox][POSTBOX_BOTTOM_ROW])/2+19,PostboxLocations[postbox][POSTBOX_LEFT_COLUMN]+2, "this box");
 }
+
 /* Using a 3 X 3 Mask
  * Generate a first derivate of the input image
  * for the pixel pointed to by f(row, col)
@@ -75,7 +80,9 @@ void sobel(IplImage* input_image,IplImage*output_image,IplImage*fd_image, int ro
 	int fd = abs(first_derivative_with_mask(input_image, row, col, mask));
 	unsigned char fd_[] = {fd};
 	PUTPIXELMACRO(fd_image, col, row,fd_,width_step, pixel_step, fd_image->nChannels);
-	if(fd> 90 ){
+	/*Because I'm only calculating the first derivated partial for the vertical mask
+	 * I had to trick around with the MINIMUM GRADIENT VALUE */
+	if(fd> MINIMUM_GRADIENT_VALUE + 40 ){
 		unsigned char red[] = {0,0,255,0};
 		PUTPIXELMACRO(output_image, col, row, red,width_step2, pixel_step2, output_image->nChannels);
 	}else{
@@ -103,21 +110,23 @@ void non_maxima(IplImage * output_image, IplImage * fd_image, int row, int col) 
 	int pixel_step=fd_image->widthStep/fd_image->width;
 	int width_step2=output_image->widthStep;
 	int pixel_step2=output_image->widthStep/output_image->width;
-
+	unsigned char black[] = {0,0,0,0};
 	unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(output_image, col, row, width_step2, pixel_step2);
 	if(curr_point[RED_CH] == 255) {
 		unsigned char* fd_point = (unsigned char *) GETPIXELPTRMACRO(fd_image, col, row, width_step, pixel_step);
+		//Examine the orthogonal pair of this pixel. i.e one to the left and one to the right.
+		// Because orientation is upwards.
 		if(col -1 > 0) {
 			unsigned char* to_the_left   = (unsigned char *) GETPIXELPTRMACRO(fd_image, col-1, row, width_step, pixel_step);
-			if(fd_point[0] < to_the_left[0]){
-				curr_point[RED_CH] = 0;
+			if(fd_point[0] <= to_the_left[0]){
+				PUTPIXELMACRO(output_image, col, row, black,width_step2, pixel_step2, output_image->nChannels);
 				return;
 			}
 		}
 		if(col + 1 < fd_image->width) {
 			unsigned char* to_the_right = (unsigned char *) GETPIXELPTRMACRO(fd_image, col+1, row, width_step, pixel_step);
-			if(fd_point[0] < to_the_right[0]){
-				curr_point[RED_CH] = 0;
+			if(fd_point[0] <= to_the_right[0]){
+				PUTPIXELMACRO(output_image, col, row, black,width_step2, pixel_step2, output_image->nChannels);
 				return;
 			}
 		}
@@ -190,10 +199,45 @@ bool motion_free_frame(IplImage* current_frame, IplImage* previous_frame)
 	int percentage = (((double) changed)/((double) current_frame->height * current_frame->width)) * 100;
 	return (percentage < ALLOWED_MOTION_FOR_MOTION_FREE_IMAGE);
 }
+
+/* This function is fed a red edge point 
+ * and draws its way upward looking for other redpoints
+ * so it can make a chain.
+ * it returns the number of pixels in the 
+ * vertical chain.
+ */
+int pixel_count(IplImage*input_image, int col,int row) {
+	int width_step=input_image->widthStep;;
+	int pixel_step=input_image->widthStep/input_image->width;
+	int pixel_no = 0;
+	row--;
+	while(row != -1 && col != -1) {
+		pixel_no += 1;
+		unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(input_image, col, row, width_step, pixel_step);
+		unsigned char* prev_point= (unsigned char *) GETPIXELPTRMACRO(input_image, col-1, row, width_step, pixel_step);
+		unsigned char* next_point = (unsigned char *) GETPIXELPTRMACRO(input_image, col+1, row, width_step, pixel_step);
+		unsigned char red[] = {0,0,255,0};
+		if(curr_point[RED_CH] != 255 && prev_point[RED_CH] != 255 && next_point[RED_CH] != 255){
+			break;
+		}else if(next_point[RED_CH] == 255){
+			PUTPIXELMACRO(input_image, col+1, row, red,width_step, pixel_step, input_image->nChannels);
+			col = col + 1;
+		}else if(prev_point[RED_CH] == 255){
+			PUTPIXELMACRO(input_image, col-1, row, red,width_step, pixel_step, input_image->nChannels);
+			col = col - 1;
+		}else{
+			PUTPIXELMACRO(input_image, col, row, red,width_step, pixel_step, input_image->nChannels);
+		}
+		row --;
+	};
+	return pixel_no;
+};
+
 /* if no motion is detected in the
  * frame then we can compute the vertical edges otherwise. do nothing.
+ * I changed labelled_output_image to a pointer to a pointer so I could clone within the function
  */
-void check_postboxes(IplImage* input_image, IplImage* labelled_output_image, IplImage* vertical_edge_image )
+void check_postboxes(IplImage* input_image, IplImage** labelled_output_image, IplImage* vertical_edge_image )
 {
 	if(motion_free_frame(input_image, prev_frame)){
 		compute_vertical_edge_image(input_image, vertical_edge_image);
@@ -201,18 +245,23 @@ void check_postboxes(IplImage* input_image, IplImage* labelled_output_image, Ipl
 		int pixel_step=vertical_edge_image->widthStep/vertical_edge_image->width;
 		for(int pb=0;pb<6;pb++){
 			int *postbox = PostboxLocations[pb];
-			int row=postbox[POSTBOX_TOP_ROW],col=postbox[POSTBOX_LEFT_COLUMN], redcount=0;
-			for(;row < postbox[POSTBOX_BOTTOM_ROW]; row++) {
-				for(col=postbox[POSTBOX_LEFT_COLUMN];col < postbox[POSTBOX_RIGHT_COLUMN]; col++) {
-					unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(vertical_edge_image,col,row,width_step, pixel_step);
-					redcount += (curr_point[RED_CH] == 255);
+			int row=postbox[POSTBOX_BOTTOM_ROW],col=postbox[POSTBOX_LEFT_COLUMN], redcount=0;
+
+			for(col=postbox[POSTBOX_LEFT_COLUMN];col < postbox[POSTBOX_RIGHT_COLUMN]; col++) {
+				unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(vertical_edge_image,col,row,width_step, pixel_step);
+				if(curr_point[RED_CH] == 255) {
+					int pixel_no= pixel_count(vertical_edge_image, col, row);
+					if(pixel_no > 5)
+						redcount += 1;
 				}
 			}
-			if(redcount < thresholds[pb]) 
-				indicate_post_in_box(labelled_output_image, pb);
+			if(redcount < thresholds[pb] - 5)
+				indicate_post_in_box(*labelled_output_image, pb);
 		}
+	}else {
+		*labelled_output_image = cvCloneImage( prev_output_frame );
 	}
-}
+};
 
 int main( int argc, char** argv )
 {
@@ -261,6 +310,8 @@ int main( int argc, char** argv )
 	while( user_clicked_key != ESC ) {
 		// Get current video frame
 		prev_frame = cvCloneImage(corrected_frame);
+		if(labelled_image != NULL)
+			prev_output_frame = cvCloneImage(labelled_image);
 		current_frame = cvQueryFrame( capture );
 		image_for_on_mouse_show_values=current_frame; // Assign image for mouse callback
 		if( !current_frame ) // No new frame available
@@ -271,11 +322,12 @@ int main( int argc, char** argv )
 		if (labelled_image == NULL)
 		{	// The first time around the loop create the image for processing
 			prev_frame = cvCloneImage(corrected_frame);
+			prev_output_frame = cvCloneImage(corrected_frame);
 			labelled_image = cvCloneImage( corrected_frame );
 			vertical_edge_image = cvCloneImage( corrected_frame );
 		}
 		labelled_image = cvCloneImage( corrected_frame );
-		check_postboxes( corrected_frame, labelled_image, vertical_edge_image );
+		check_postboxes( corrected_frame, &(labelled_image), vertical_edge_image );
 
 		//IplImage *gframe= cvCreateImage( cvGetSize(corrected_frame),8, 1 );
 		//IplImage *outputframe= cvCreateImage( cvGetSize(corrected_frame),8, 3 );
