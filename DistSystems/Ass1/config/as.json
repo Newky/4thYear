@@ -1,0 +1,11 @@
+{
+	"names": {"Richy" : "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7", "richdel": "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7","ec2-user": "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"},
+	"services" : {
+			"fs" : [
+					["localhost", "19999", "245ba14bbe3db735581b89871ec6d93cb95b058f"]
+			       ],
+			"ds" : [
+					["localhost", "18888", "a7899d63fcc914cf0dd008bf8ba6bb9f3bccd1ab"]
+				]
+	}
+}

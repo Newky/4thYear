@@ -1,0 +1,17 @@
+{
+	"Documents": [
+			["localhost", "19999", "/home/richdel/dfs/Documents"]
+		],
+	"Downloads": [
+			["localhost", "19999", "/home/richdel/dfs/Downloads"]
+		],
+	"Music" : [
+			["localhost", "19999", "/home/richdel/dfs/Music"]
+		],
+	"Pictures" : [
+			["localhost", "19999", "/home/richdel/dfs/Pictures"]
+		],
+	"Videos" : [
+			["localhost", "19999", "/home/richdel/dfs/Videos"]
+		]
+}
