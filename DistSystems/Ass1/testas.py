@@ -12,13 +12,9 @@ Looks up authentication server
 for a user.
 Gets back [ticket, session key, [server address, server port]]
 '''
-def lookup_as(name, service, password):
+def lookup_as(data, password):
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	data = {
-		"name": name,
-		"type": "login",
-		"service": service 
-	}
+	received = None
 	try:
 		# Connect to server and send data
 		sock.connect((HOST, PORT))
@@ -56,12 +52,21 @@ def lookup_ds(message, server_id, ticket, session):
 
 if __name__ == "__main__":
 	password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
-	results = lookup_as("Richy", "ds", password)
+	data = {
+		"name": "Richy",
+		"type": "login",
+		"service": "ds" 
+	}
+	results = lookup_as(data, password)
 	if(results):
 		ticket, session, server_id = results
-		print ticket
-		print session
-		print server_id
-		message = lookup_ds("Documents", server_id, ticket, session)
-		print message
+		message = lookup_ds("Documents/Music/Test.txt", server_id, ticket, session)
+		print "Encrypting using {0}".format(session)
+		data = {
+			"server": secure.encrypt_with_key(server_id[0], session), 
+			"type": "login",
+			"service": "fs" 
+		}
+		results = lookup_as(data, session)
+		print results 
 
