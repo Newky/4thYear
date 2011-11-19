@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-import os
-import SocketServer
 import json
+import os
 import secure
+import SocketServer
 
 password = "a7899d63fcc914cf0dd008bf8ba6bb9f3bccd1ab"
 directories = json.loads(open("config/ds.json", "r").read())

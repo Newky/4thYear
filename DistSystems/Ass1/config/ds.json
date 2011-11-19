@@ -1,17 +1,17 @@
 {
 	"Documents": [
-			["localhost", "19999", "/home/richdel/dfs/Documents"]
+			["localhost", "19999", "/home/richy/dfs/"]
 		],
 	"Downloads": [
-			["localhost", "19999", "/home/richdel/dfs/Downloads"]
+			["localhost", "19999", "/home/richy/dfs/"]
 		],
 	"Music" : [
-			["localhost", "19999", "/home/richdel/dfs/Music"]
+			["localhost", "19999", "/home/richy/dfs/"]
 		],
 	"Pictures" : [
-			["localhost", "19999", "/home/richdel/dfs/Pictures"]
+			["localhost", "19999", "/home/richy/dfs/"]
 		],
 	"Videos" : [
-			["localhost", "19999", "/home/richdel/dfs/Videos"]
+			["localhost", "19999", "/home/richy/dfs/"]
 		]
 }
