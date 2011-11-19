@@ -49,29 +49,56 @@ def lookup_ds(message, server_id, ticket, session):
 		else:
 			return None
 	
+def lookup_fs(data, local_file, server_id, password):
+	received = None
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	try:
+		# Connect to server and send data
+		sock.connect((    server_id[0], int(server_id[1])   ))
+		sock.send(json.dumps(data))
+		# Receive data from the server and shut down
+		received = sock.recv(1024)
+		received = secure.decrypt_with_key(received, password)
+		received = json.loads(received)
+	finally:
+		sock.close()
+		contents = ""
+		if(received):
+			contents = base64.b64decode(received["payload"])
+		try:
+			f = open(local_file, "wb")
+			f.write(contents)
+			f.close()
+			return "Saved at {0}".format(local_file)
+		except OSError:
+			return "Could not write to {0}".format(local_file)
+			
 
 
-if __name__ == "__main__":
-	file_to_lookup = "Documents/Music/Test.txt"
-	password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
+def file_open(file_to_lookup, local_file, name, password):
+	#Data to get ticket for DS from AS
 	data = {
-		"name": "Richy",
-		"type": "login",
-		"service": "ds" 
-	}
+		"name": name,
+		"type": "login", #What is going on here richy, why is it called login
+		"service" : "ds"
+	};
 	results = lookup_as(data, password)
 	if(results):
 		ticket, session, server_id = results
+		# Lookup the directory service for the file we are looking for
 		message = lookup_ds(file_to_lookup, server_id, ticket, session)
+		# json decode the message coming back
 		message= json.loads(message)
-		print "Encrypting using {0}".format(session)
+		# Prepare json request for FS to the AS given a server name we need a ticket for that server
 		data = {
 			"server": secure.encrypt_with_key(server_id[0], session), 
 			"type": "login",
 			"service": "fs" 
 		}
 		results = lookup_as(data, session)
+		#Split up the return results for our fs lookup to the AS
 		ticket, session, server_id = results
+		#Prepare request packet for FS
 		data = {
 			"ticket": ticket,
 			"message": {
@@ -79,23 +106,15 @@ if __name__ == "__main__":
 				"message":  os.path.join(message[2], file_to_lookup)
 			}
 		}
-		print "Encrypting using {0}".format(session)
 		data["message"] = secure.encrypt_with_key(json.dumps(data["message"]), session)
-		received = None
-		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		try:
-			# Connect to server and send data
-			sock.connect((    server_id[0], int(server_id[1])   ))
-			sock.send(json.dumps(data))
-			# Receive data from the server and shut down
-			received = sock.recv(1024)
-			received = secure.decrypt_with_key(received, session)
-			received = json.loads(received)
-		finally:
-			sock.close()
-			if(received):
-				print base64.b64decode(received["payload"])
-			else:
-				print None
+		print lookup_fs(data, local_file, server_id, session)
+	else:
+		print "Error with file open"
+
+if __name__ == "__main__":
+	file_to_lookup = "Documents/Music/Test.txt"
+	password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
+	file_open(file_to_lookup, "cached/test.txt", "Richy", password)
+	
 			
 
