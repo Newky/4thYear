@@ -57,7 +57,12 @@ def lookup_fs(data, local_file, server_id, password):
 		sock.connect((    server_id[0], int(server_id[1])   ))
 		sock.send(json.dumps(data))
 		# Receive data from the server and shut down
-		received = sock.recv(1024)
+		packet = None
+		received="" 
+		while 1:
+			packet = sock.recv(1024)
+			if not packet:  break
+			received += packet
 		received = secure.decrypt_with_key(received, password)
 		received = json.loads(received)
 	finally:
@@ -112,9 +117,9 @@ def file_open(file_to_lookup, local_file, name, password):
 		print "Error with file open"
 
 if __name__ == "__main__":
-	file_to_lookup = "Documents/Music/Test.txt"
+	file_to_lookup = "Documents/Music/Test"
 	password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
-	file_open(file_to_lookup, "cached/test.txt", "Richy", password)
+	file_open(file_to_lookup, "cached/test", "Richy", password)
 	
 			
 
