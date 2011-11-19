@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import socket
 import json
 import sys
@@ -7,41 +6,62 @@ import os
 import secure
 
 HOST, PORT = "localhost", 9998
-data = {
-	"name": "Richy",
-	"type": "login",
-	"service": "ds"
-}
 
-password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
-# Create a socket (SOCK_STREAM means a TCP socket)
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-try:
-	# Connect to server and send data
-	sock.connect((HOST, PORT))
-	sock.send(json.dumps(data))
-	# Receive data from the server and shut down
-	received = sock.recv(1024)
-	received = secure.decrypt_with_key(received, password)
-	print "Sent:     {0}".format(data)
-	print "Received: {0}".format(received)
-	received = json.loads(received)
-	session_key = received["session"]
-	data = {
-		"message": secure.encrypt_with_key("Documents", session_key),
-		"ticket" : received["ticket"]
-	}
-	sock.close()
+'''
+Looks up authentication server
+for a user.
+Gets back [ticket, session key, [server address, server port]]
+'''
+def lookup_as(name, service, password):
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	print "Connecting to... {0}:{1}".format(received["server_id"][0], received["server_id"][1])
-	sock.connect((received["server_id"][0], int(received["server_id"][1])))
-	sock.send(json.dumps(data))
-	received = sock.recv(1024)
-	received = secure.decrypt_with_key(received, session_key)
-	print received
-	
-finally:
-    sock.close()
+	data = {
+		"name": name,
+		"type": "login",
+		"service": service 
+	}
+	try:
+		# Connect to server and send data
+		sock.connect((HOST, PORT))
+		sock.send(json.dumps(data))
+		# Receive data from the server and shut down
+		received = sock.recv(1024)
+		received = secure.decrypt_with_key(received, password)
+		received = json.loads(received)
+	finally:
+		sock.close()
+		if(received):
+			 return (received["ticket"],received["session"], received["server_id"])
+		else:
+			return None
 
- 
+def lookup_ds(message, server_id, ticket, session):
+	data = {
+		"message": secure.encrypt_with_key(message, session),
+		"ticket": ticket
+	}
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	try:
+		sock.connect(( server_id[0], int(server_id[1]) ))
+		sock.send(json.dumps(data))
+		received = sock.recv(1024)
+		received = secure.decrypt_with_key(received, session)
+	finally:
+		sock.close()
+		if(received):
+			return received
+		else:
+			return None
+	
+
+
+if __name__ == "__main__":
+	password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
+	results = lookup_as("Richy", "ds", password)
+	if(results):
+		ticket, session, server_id = results
+		print ticket
+		print session
+		print server_id
+		message = lookup_ds("Documents", server_id, ticket, session)
+		print message
+
