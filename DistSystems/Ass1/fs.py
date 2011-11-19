@@ -46,6 +46,18 @@ What happens if the file is not found on server?
 --> 
 '''
 
+
+def patch_file(file_name, diff):
+	try:
+		f = open(file_name + ".diff", "w")
+		f.write(diff)
+		f.close()
+		f = os.popen("patch %s -i %s" %(file_name, file_name + ".diff"))
+		return f.read()
+	except OSError:
+		print "OS error opening {0}".format(file_name + ".diff")
+		
+
 password = "245ba14bbe3db735581b89871ec6d93cb95b058f"
 class TCPServer(SocketServer.TCPServer):
 	allow_reuse_address = True
@@ -57,7 +69,6 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		ticket = secure.decrypt_with_key(self.jdata["ticket"], password)
 		ticket = json.loads(ticket)
 		message = secure.decrypt_with_key(self.jdata["message"], ticket[0])
-		print message
 		message = json.loads(message)
 		if "type" in message:	
 			if message["type"] == "open":
@@ -82,10 +93,23 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 			print "Error opening file"
 			data["error"] = "io"
 		finally:
+			data["type"] = "read"
 			self.request.send(secure.encrypt_with_key(json.dumps(data), session_key))
 
-	def handle_write(self, message):
-		pass
+	def handle_write(self, message, session_key):
+		data = {
+			"status" : "Received Diff File"
+		}
+		try:
+			file_name = message["message"]
+			patch_output = patch_file(file_name, base64.b64decode(message["payload"]))
+			print patch_output
+		except ValueError:
+			print "Ugh message from user doesn't have a message field"
+			data["error"] = "Input"
+		finally:
+			data["type"] = "write"
+			self.request.send(secure.encrypt_with_key(json.dumps(data), session_key))
 
 if __name__ == "__main__":
 	HOST, PORT = "localhost", 19999 
