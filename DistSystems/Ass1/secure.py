@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#!/usr/bin/env python
 import os
 
 def encrypt_with_key(body, key):

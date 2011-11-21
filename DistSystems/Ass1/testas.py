@@ -91,107 +91,99 @@ def lookup_fs(data, local_file, server_id, password):
 		elif received["type"] == "write":
 			return "Successful Write"
 			
-
-def file_open(file_to_lookup, local_file, name, password):
-	#Data to get ticket for DS from AS
-	data = {
-		"name": name,
-		"type": "login", #What is going on here richy, why is it called login
-		"service" : "ds"
-	};
-	results = lookup_as(data, password)
-	if(results):
+def get_ticket_for_file(file_to_lookup, name, password, session=None):
+	if "ds" in aslookups:
+		print "Using Cached AS lookup for DS"
+		ticket, session, server_id = aslookups["ds"][0] 
+	else:
+		#Data to get ticket for DS from AS
+		data = {
+			"name": name,
+			"type": "login", #What is going on here richy, why is it called login
+			"service" : "ds"
+		};
+		results = lookup_as(data, password)
+		aslookups["ds"] = [results]
+		if results == None:
+			return None
 		ticket, session, server_id = results
+	if  os.path.dirname(file_to_lookup) in dslookups:
+		print "Using Cached DS lookup for "+file_to_lookup
+		message = dslookups[os.path.dirname(file_to_lookup)]
+	else:
 		# Lookup the directory service for the file we are looking for
 		message = lookup_ds(file_to_lookup, server_id, ticket, session)
 		# json decode the message coming back
 		# format (server address, server port, directory path(full))
 		message= json.loads(message)
-		dslookups[file_to_lookup] = message
+		dslookups[os.path.dirname(file_to_lookup)] = message
+	if "fs" in aslookups:
+		print "Using Cached AS lookup for FS"
+		ticket, session, server_id = aslookups["fs"][0]
+	else:
 		# Prepare json request for FS to the AS given a server name we need a ticket for that server
 		data = {
 			"server": secure.encrypt_with_key(server_id[0], session), 
 			"type": "login",
 			"service": "fs" 
 		}
-		results = lookup_as(data, session)
-		#Split up the return results for our fs lookup to the AS
-		ticket, session, server_id = results
-		#Prepare request packet for FS
-		data = {
-			"ticket": ticket,
-			"message": {
-				"type": "open",
-				"message":  os.path.join(message[2], file_to_lookup)
-			}
+		#Ticket, session, server_id from the as for the fs
+		ticket, session, server_id = lookup_as(data, session)
+		aslookups["fs"] = [(ticket, session, server_id)]
+
+	return (ticket, session, server_id, message)
+
+
+def file_open(file_to_lookup, local_file, name, password, session=None):
+	results = get_ticket_for_file(file_to_lookup, name, password, session)
+	if(results == None):
+		return None
+	ticket, session, server_id, message = results
+	data = {
+		"ticket": ticket,
+		"message": {
+			"type": "open",
+			"message":  os.path.join(message[2], file_to_lookup)
 		}
-		data["message"] = secure.encrypt_with_key(json.dumps(data["message"]), session)
-		print lookup_fs(data, local_file, server_id, session)
-		return session
-	else:
-		print "Error with file open"
+	}
+	data["message"] = secure.encrypt_with_key(json.dumps(data["message"]), session)
+	print lookup_fs(data, local_file, server_id, session)
+	return session
 
 def file_write(file_to_lookup, diff_file_name, name, password, session=None):
-	#Have only done DS caching at the moment so still have to go to AS for
-	#FS tickets.
-	if file_to_lookup in dslookups:
-		if session != None:
-			[addr, port, file_path] = dslookups[file_to_lookup]
-			data = {
-				"server": secure.encrypt_with_key(addr, session), 
-				"type":"login",
-				"service": "fs"
-			}
-			ticket, session, server_id = lookup_as(data, session)
-			data = {
-				"ticket": ticket,
-				"message": {
-					"type":"write",
-					"message": os.path.join(file_path,file_to_lookup),
-					"payload":base64.b64encode(open(diff_file_name, "rb").read())
-				}
-			}
-			data["message"] = secure.encrypt_with_key(json.dumps(data["message"]), session)
-			print lookup_fs(data, "", server_id, session)
-			return
-	#---here---
-	#Do entire AS, DS process again.
-	#Data to get ticket for DS from AS
+	results = get_ticket_for_file(file_to_lookup, name, password, session)
+	if(results == None):
+		return None
+	ticket, session, server_id, message = results
 	data = {
-		"name": name,
-		"type": "login", #What is going on here richy, why is it called login
-		"service" : "ds"
-	};
-	results = lookup_as(data, password)
-	if(results):
-		ticket, session, server_id = results
-		# Lookup the directory service for the file we are looking for
-		message = lookup_ds(file_to_lookup, server_id, ticket, session)
-		# json decode the message coming back
-		# format (server address, server port, directory path(full))
-		message= json.loads(message)
-		dslookups[file_to_lookup] = message
-		# Prepare json request for FS to the AS given a server name we need a ticket for that server
-		data = {
-			"server": secure.encrypt_with_key(server_id[0], session), 
-			"type": "login",
-			"service": "fs" 
+		"ticket": ticket,
+		"message": {
+			"type":"write",
+			"message": os.path.join(message[2], file_to_lookup),
+			"payload":base64.b64encode(open(diff_file_name, "rb").read())
 		}
-		results = lookup_as(data, session)
-		#Split up the return results for our fs lookup to the AS
-		ticket, session, server_id = results
-
-	print "Do entire AS, DS process again."
-	pass
+	}
+	data["message"] = secure.encrypt_with_key(json.dumps(data["message"]), session)
+	print lookup_fs(data, "", server_id, session)
+	return session
 
 dslookups = {}
+aslookups = {}
 
 if __name__ == "__main__":
 	file_to_lookup = "Documents/Music/Test.txt"
+	file_to_lookup2 = "Documents/Music/Test2.txt"
+	file_to_lookup3 = "Documents/Music/Test3.txt"
+	file_to_lookup4 = "Documents/Music/Test4.txt"
 	password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
 	saved_location = "cached/test"
 	session_key = file_open(file_to_lookup, saved_location, "Richy", password)
+	session_key = file_open(file_to_lookup2, saved_location+"2", "Richy", password)
+	session_key = file_open(file_to_lookup3, saved_location+"3", "Richy", password)
+	session_key = file_open(file_to_lookup4, saved_location+"4", "Richy", password)
 	os.popen("echo 'Test' >> {0}".format(saved_location) )
-	os.popen("diff %s %s > %s".format(hidden_file_path(saved_location), saved_location, saved_location + ".diff"))
+	command = "diff {0} {1} > {2} ".format(hidden_file_path(saved_location), saved_location, saved_location + ".diff")
+	r= os.popen(command)
 	session_key = file_write(file_to_lookup, saved_location + ".diff", "Richy", password, session_key)
+	print session_key
 
