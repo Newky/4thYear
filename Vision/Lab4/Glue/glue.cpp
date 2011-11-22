@@ -15,15 +15,16 @@
 #define ROW_STEP_FOR_LABEL_CHECK 20
 #define ALLOWED_VARIATION 4
 
-
+/*Given a row and column value for an edge image.(i.e binary image highlighting edges)
+ *And a reference to a left column and right column int value
+ *If less than two edge points are found in either the left scan
+ *or right scan then return false.
+ * */
 bool find_label_edges( IplImage* edge_image, IplImage* result_image, int row, int& left_label_column, int& right_label_column )
 {
-	// TO-DO: Search for the sides of the labels from both the left and right on "row".  The side of the label is taken	
-	//        taken to be the second edge located on that row (the side of the bottle being the first edge).  If the label
-	//        are found set the left_label_column and the right_label_column and return true.  Otherwise return false.
-	//        The routine should mark the points searched (in yellow), the edges of the bottle (in blue) and the edges of the
-	//        label (in red) - all in the result_image.
-
+	/* Get the width and pixel step for
+	 * the edge image and the result image.
+	 */
 	int width_step=edge_image->widthStep;
 	int pixel_step=edge_image->widthStep/edge_image->width;
 	int width_step2=result_image->widthStep;
@@ -35,6 +36,10 @@ bool find_label_edges( IplImage* edge_image, IplImage* result_image, int row, in
 	unsigned char red[] = {0, 0,255};
 	unsigned char yellow[] = {0, 255, 255};
 	unsigned char black[] = {0, 0, 0};
+	/* For loop which loops till half way through the image
+	 * if it finds an edge, point_found is incremented
+	 * If the second point is found then the left label column is set.
+	 */
 	for(int i=0; i < edge_image->width / 2; i++) {
 		unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(edge_image,i,row,width_step, pixel_step);
 		if(curr_point[0] == 255){
@@ -51,7 +56,14 @@ bool find_label_edges( IplImage* edge_image, IplImage* result_image, int row, in
 			break;
 		}
 	}
+	/*If the two edge points aren't found then return a false*/
+	if(point_found < 2)
+		return false;
+	// Reset point found
 	point_found = 0;
+	/* Same as the last for loop except it
+	 * decrements from the right hand side of image.
+	 */
 	for(int i=edge_image->width -1/2; i>0; i--) {
 		unsigned char* curr_point = (unsigned char *) GETPIXELPTRMACRO(edge_image,i,row,width_step, pixel_step);
 		if(curr_point[0] == 255){
@@ -68,26 +80,46 @@ bool find_label_edges( IplImage* edge_image, IplImage* result_image, int row, in
 			break;
 		}
 	}
-	return false;
+	if(point_found < 2)
+		return false;
+	/* if you get to here, both edges and labels have been found, return a true */
+	return true;
 }
-
+/* Check glue bottle takes the original image, 
+ * Runs over each row in a given area and a given row step increment,
+ * And checks each row using the above function.
+ * */
 void check_glue_bottle( IplImage* original_image, IplImage* result_image )
 {
-
+	/* Needs two gray scale versions of the image
+	 * Convert the original image.
+	 * Smooth the image with a gaussian filter.
+	 * Use Canny edge detection on the image,which leaves u with a binary image.
+	 */
 	IplImage * gray= cvCreateImage(cvGetSize(original_image),IPL_DEPTH_8U, 1);
 	IplImage * gray2= cvCreateImage(cvGetSize(original_image),IPL_DEPTH_8U, 1);
 	cvConvertImage(original_image, gray);
 	cvSmooth(gray, gray, CV_GAUSSIAN, 11,11);
 	cvCanny(gray, gray2, 10, 40);
-	
+
 	int i=0, blank=0;
 	int left_column = -1, temp_left_column = -1;
 	int right_column = -1, temp_right_column = -1;
+	/* We take the left and right hand points 
+	 * in as an array, so we can account for point drift, 
+	 * which wouldn't be accounted for using previous and current point
+	 */
 	int * left_col_arr = new int[5];
 	int * right_col_arr = new int[5];
 	int * lptr = left_col_arr;
 	int * rptr = right_col_arr;
 	cvZero(result_image);
+	/*This merges the original canny image into the result image. (Overaly edges with the algorithm for finding label edges.*/
+	cvMerge(gray2, gray2, gray2, NULL, result_image);
+	/* Given a starting label row, and an ending label row, and a row step
+	 * Find the label edge on that row,  If either the left or right point of the label edge are equal to 0
+	 * the bottle is blank
+	 * */
 	for(i = FIRST_LABEL_ROW_TO_CHECK; i < LAST_LABEL_ROW_TO_CHECK; i+=ROW_STEP_FOR_LABEL_CHECK) {
 		find_label_edges(gray2, result_image, i, *lptr, *rptr);
 		if(*rptr == 0 || *lptr ==0)
@@ -95,7 +127,13 @@ void check_glue_bottle( IplImage* original_image, IplImage* result_image )
 		lptr++;
 		rptr++;
 	};
-
+	if(blank){
+		write_text_on_image(result_image, 50, 50, "No Label");
+		return;
+	}
+	/* Set up the left and right min
+	 * And get the max and min values of the array (both left and right)
+	 */
 	int lmin= result_image->width, lmax = 0;
 	int rmin= result_image->width, rmax = 0;
 
@@ -109,10 +147,9 @@ void check_glue_bottle( IplImage* original_image, IplImage* result_image )
 		if(right_col_arr[i] < rmin)
 			rmin = i;
 	};
-	if(blank){
-		write_text_on_image(result_image, 50, 50, "No Label");
-		return;
-	}
+	/* If the difference between the max and min value of left column is more than some
+	 * allowed variation then its crooked, same for right column
+	 * Otherwise the label is present */
 	if(abs(left_col_arr[lmax] -left_col_arr[lmin]) > ALLOWED_VARIATION){
 		write_text_on_image(result_image, 50, 50, "Crooked");
 	}else if(abs(right_col_arr[rmax] -right_col_arr[rmin]) > ALLOWED_VARIATION){
@@ -120,8 +157,6 @@ void check_glue_bottle( IplImage* original_image, IplImage* result_image )
 	}else {
 		write_text_on_image(result_image, 50, 50, "Label Present");
 	}
-	//         To implement this you may need to use smoothing (cv::GaussianBlur() perhaps) and edge detection (cvCanny() perhaps).
-	//        You might also need cvConvertImage() which converts between different types of image.
 }
 
 int main( int argc, char* argv[] )
