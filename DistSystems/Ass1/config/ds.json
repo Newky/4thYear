@@ -1,17 +1,18 @@
 {
 	"Documents": [
-			["localhost", "19999", "/home/richy/dfs/"]
+			["localhost", "19999", "/home/richdel/dfs/","245ba14bbe3db735581b89871ec6d93cb95b058f"],
+			["localhost", "19998", "/home/richdel/dfs2/","245ba14bbe3db735581b89871ec6d93cb95b058f"]
 		],
 	"Downloads": [
-			["localhost", "19999", "/home/richy/dfs/"]
+			["localhost", "19999", "/home/richdel/dfs/", "245ba14bbe3db735581b89871ec6d93cb95b058f"]
 		],
 	"Music" : [
-			["localhost", "19999", "/home/richy/dfs/"]
+			["localhost", "19999", "/home/richdel/dfs/", "245ba14bbe3db735581b89871ec6d93cb95b058f"]
 		],
 	"Pictures" : [
-			["localhost", "19999", "/home/richy/dfs/"]
+			["localhost", "19999", "/home/richdel/dfs/", "245ba14bbe3db735581b89871ec6d93cb95b058f"]
 		],
 	"Videos" : [
-			["localhost", "19999", "/home/richy/dfs/"]
+			["localhost", "19999", "/home/richdel/dfs/", "245ba14bbe3db735581b89871ec6d93cb95b058f"]
 		]
 }

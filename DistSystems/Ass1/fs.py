@@ -4,6 +4,7 @@ import json
 import os
 import secure
 import SocketServer
+import sys
 
 '''
 File Service
@@ -68,7 +69,8 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		self.jdata = json.loads(self.data)
 		ticket = secure.decrypt_with_key(self.jdata["ticket"], password)
 		ticket = json.loads(ticket)
-		message = secure.decrypt_with_key(self.jdata["message"], ticket[0])
+		print ticket
+		message = secure.decrypt_with_key(self.jdata["request"], ticket[0])
 		message = json.loads(message)
 		if "type" in message:	
 			if message["type"] == "open":
@@ -112,7 +114,11 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 			self.request.send(secure.encrypt_with_key(json.dumps(data), session_key))
 
 if __name__ == "__main__":
-	HOST, PORT = "localhost", 19999 
+	if len(sys.argv) == 3:
+		HOST, PORT = sys.argv[1], int(sys.argv[2])
+	else:
+		HOST, PORT = "localhost", 19999 
+	print "File Service Started on {0}:{1}".format(HOST, PORT)
 	#Had to overload TCPServer so it reuses the addr
 	server = TCPServer((HOST, PORT), RequestHandler)
 	#TCP server which serves forever on specified host and port.

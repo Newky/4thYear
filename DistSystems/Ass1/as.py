@@ -47,7 +47,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 	self.jdata = json.loads(self.data)
 	if(self.jdata != None):
 		if(self.jdata["type"]):
-			if(self.jdata["type"] == "login"):
+			if(self.jdata["type"] == "request"):
 				self.handle_ticket()
 	
     def handle_ticket(self):
