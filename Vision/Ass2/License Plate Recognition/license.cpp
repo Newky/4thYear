@@ -39,7 +39,7 @@ void crop_image(IplImage*source, IplImage*result, int start, int end) {
 struct pair find_number(IplImage *source, int last_col) {
 	IplImage* binary_image = cvCreateImage( cvGetSize(source), 8, 1 );
 	cvConvertImage( source, binary_image );
-	cvThreshold( binary_image, binary_image, 125, 255, CV_THRESH_BINARY );
+	cvThreshold( binary_image, binary_image, 80, 255, CV_THRESH_BINARY );
 	int width_step=binary_image->widthStep;
 	int pixel_step=binary_image->widthStep/binary_image->width;
 	int row=0, col=0;
@@ -82,14 +82,26 @@ int number_of_holes(IplImage*source) {
 	cvConvertImage( source, binary_image );
 	CvMemStorage* storage = cvCreateMemStorage(0);
 	CvSeq* contour = 0;
-	cvThreshold( binary_image, binary_image, 125, 255, CV_THRESH_BINARY );
+	cvThreshold( binary_image, binary_image, 90, 255, CV_THRESH_BINARY );
 	cvFindContours( binary_image, storage, &contour, sizeof(CvContour),CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE );
 	cvZero(source);
 	int counter =0;
 	for(;contour !=0;contour = contour->h_next, counter++){
-		CvScalar color = CV_RGB(rand(), rand(), rand());
+		CvScalar color = CV_RGB(rand()&255, rand()&255, rand()&255);
+		printf("Drawing Contour");
 		cvDrawContours( source, contour, color, color, -1, CV_FILLED, 8 );
 	}
+	int width_step=source->widthStep;
+	int pixel_step=source->widthStep/source->width;
+	//int row=0, height;
+	//int col=0, width;
+	unsigned char white[] = {255, 255, 255};
+	for(int row=0;row<source->height;row+= source->height-1) 
+		for(int col=0;col<source->width;col++)
+			PUTPIXELMACRO( source, col, row, white, width_step, pixel_step,source->nChannels);
+	for(int col=0;col<source->width;col+= source->width-1)
+		for(int row=0;row<source->height;row++)
+			PUTPIXELMACRO( source, col, row, white, width_step, pixel_step,source->nChannels);
 	return counter -1;
 };
 
@@ -169,7 +181,7 @@ int main( int argc, char** argv )
 		if( (images[file_num-1] = cvLoadImage(filename,-1)) == 0 )
 			return 0;
 		int x = 24, y=15;
-		cvSetImageROI(images[file_num-1],cvRect(x,y, images[file_num-1]->width - x,images[file_num-1]->height - y));
+		cvSetImageROI(images[file_num-1],cvRect(x,y, images[file_num-1]->width - x,images[file_num-1]->height - y -5));
 	}
 
 
@@ -180,8 +192,11 @@ int main( int argc, char** argv )
 
 	// Create display windows for images
 	cvNamedWindow( "Original", 1 );
+	cvMoveWindow("Original", 0, 0);
 	cvNamedWindow( "Processing", 0 );
+	cvMoveWindow("Processing", 360, 0);
 	cvNamedWindow( "Processing2", 0 );
+	cvMoveWindow("Processing2", 720, 0);
 
 	// Create images to do the processing in.
 	selected_image = cvCreateImage(cvGetSize(images[selected_image_num]), images[selected_image_num]->depth, images[selected_image_num]->nChannels);
