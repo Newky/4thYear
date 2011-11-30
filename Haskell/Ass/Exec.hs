@@ -23,6 +23,16 @@ exec Distinct ((Col x):[]) con@((Just m), s, o) = do
 			           putStrLn $ (show $ length  dist) ++ " Distinct Records"
 				   return con
 
+exec Count xs con@((Just m), s, o) = do
+		   let str =execcount xs m 
+		   putStrLn $ str
+		   return con
+
+exec List xs con@((Just m), s, o) = do
+		   let newm = execlist xs m
+		   putStrLn $ spreadsheet2str newm 
+		   return con
+
 exec Load ((Filename x):[]) con@((Just m), s, o) = do
 				putStrLn $ (++) "Opening " $ show x 
 				newm <- loadsheetf x m
@@ -50,7 +60,7 @@ exec Save ((Filename x):[]) con@((Just m), s, o) = do
 				return con
 
 exec Show [] con@((Just m), s, o) = do
-				    putStrLn $ show $ spreadsheet2str m
+				    putStrLn $  spreadsheet2str m
 				    return con
 
 exec Out [(Filename x)] con@((Just m), s, o) = do
@@ -61,6 +71,16 @@ exec NoOutput [] con@((Just m), s, o) = do
 
 exec Quit _ con@((Just m), s, o) = do
 				   return (Nothing, s, o)
+
+execlist _ [] = []
+execlist ((Col x):(Value str):xs) m 
+	| (x >= (length $ head m)) = []
+	| otherwise		 = execlist xs (filterspreadsheet x str m)
+execlist ((Ident x):(Value str):xs) m = execlist xs (filterspreadsheet_name x str m)
+execlist [] m =  m
+
+execcount xs m = (++) (show $ length $ selm) " records matching."
+		where selm = execlist xs m
 
 loadsheetf :: String -> Spreadsheet -> IO Spreadsheet 
 loadsheetf x model = do
@@ -106,6 +126,18 @@ field2str (Map x y) = y
 distinct :: [Field] -> [Field] 
 distinct c = r_dup  c
 
+filterspreadsheet col_no val m = filter (\row -> containsglob val ( get_value row col_no) ) m
+filterspreadsheet_name col_name val m = filter (\row -> containsglob val ( field2str $ get_el row col_name) ) m
+
+get_el [] col_name = Blank
+get_el ((Blank):xs) col_name = get_el xs col_name
+get_el ((Map x y):xs) col_name
+	| (x == col_name) = (Map x y)
+	| otherwise = get_el xs col_name
+
+get_value :: Record -> Int -> String
+get_value rec col_no = field2str (rec !! col_no)
+
 get_column :: Int -> Spreadsheet -> [Field] 
 get_column col_no m = map ( \x -> (x !! col_no) ) m
 
@@ -130,4 +162,27 @@ r_dup' (x:xs) x'
 count ::(Eq a) =>  a -> [a] -> Int
 count el row = length $ filter (\x -> x == el) row  
 
+contains :: String -> String -> Bool
+contains _ [] = False 
+contains lookup@(x:xs) (y:ys)
+		| (x == y) = (contains' xs ys) || contains lookup ys
+		| (x /= y) = contains lookup ys
 
+contains' [] _ = True
+contains' _ [] = False 
+contains' (x:xs) (y:ys)
+	| (x == y) = contains' xs ys
+	| otherwise = False
+
+containsglob [] _ = True
+containsglob ['*'] [] = True
+containsglob _ [] = False
+containsglob f@(x:xs) s@(y:ys)
+	| (x == y ) = containsglob xs ys
+	| (x == '*') = (containsglob xs s) || (containsglob f ys)
+	| (x == '?') = (containsglob xs ys) 
+	| otherwise = False
+
+
+-- *Cork*
+-- Cork
