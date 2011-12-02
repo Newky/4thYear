@@ -1,11 +1,11 @@
 module Main where
-
+import IO
 import Parse (parse, CmdToken, ArgsToken, unwordsSep)
 import Exec 
 
 
 main = do 
-	cmd ((Just []),[],(""))
+	cmd ((Just []),[],stdout)
 
 cmd :: Config-> IO ()
 
@@ -13,7 +13,7 @@ cmd (Nothing,_,_)= do
 	putStrLn "Ended."
 cmd con@((Just model),selected,output)= do
 	putStrLn $ (show $ length model) ++ " Records."
-	putStrLn $ "Output file:"++output
+-- 	putStrLn $ "Output file:"++output
 	putStr ">>"
 	line <- getLine
 	let toks = (parse line)

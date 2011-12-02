@@ -1,7 +1,7 @@
 module Parse where
 import Data.Char
 
-data CmdToken =  Load | Save | Report | Set | Out | NoOutput | List | Count | Distinct | DateFix | GridFix | Reformat | Select | Show | Order | Update | Delete | Insert | Help | Quit
+data CmdToken =  Load | Save | Report | Set  | NoOutput | List | Count | Distinct | DateFix | GridFix | Reformat | Select | Show | Order | Update | Delete | Insert | Help | Quit
 	deriving(Eq, Show)
 data ArgsToken = Filename String | Registrations | Competitions | Output String | Col Int | Ident String | Value String | UpperCase | LowerCase | Capitalize | Trim | All | Ascending | Descending
 	deriving(Eq, Show)
@@ -22,7 +22,7 @@ find ((k, v):xs) k'
 		| (k' == k) = Just v
 		| otherwise = find xs k'
 find [] _ = Nothing
-cmddict = [("load", Load), ("save", Save), ("report", Report), ("set", Set), ("distinct", Distinct), ("count", Count),("list", List),("out", Out),("nooutput", NoOutput), ("update", Update),
+cmddict = [("load", Load), ("save", Save), ("report", Report), ("set", Set), ("distinct", Distinct), ("count", Count),("list", List),("nooutput", NoOutput), ("update", Update),
 		("date-fix", DateFix), ("grid-fix", GridFix), ("reformat", Reformat), ("select",Select), ("show", Show),("order", Order), ("delete", Delete), ("insert", Insert),
 			("help", Help), ("quit", Quit)]
 
@@ -58,11 +58,6 @@ parseArgs Save xs = case str of
 				Nothing -> Left ("Invalid Input after the save. " ++ xs)
 			where str = parseQuote xs
 
-parseArgs Out xs = case str of
-				Just s -> Right [(Filename s)]
-				Nothing -> Left ("Invalid Input after the save. " ++ xs)
-			where str = parseQuote xs
-
 parseArgs Report "registrations" = Right [Registrations]
 parseArgs Report "competitions" = Right [Competitions]
 parseArgs Report xs = Left ("Invalid Input after report. "++ xs )
@@ -79,6 +74,7 @@ parseArgs Distinct xs = case rest of
 			where rest = parseIdent xs 
 parseArgs Count xs = parseIdentVals '=' xs
 parseArgs List xs = parseIdentVals '=' xs
+parseArgs Insert [] =  Right []
 parseArgs Insert xs = parseIdentVals '=' xs
 parseArgs Select "all" = Right [All]
 parseArgs Select xs = parseIdentVals '=' xs
@@ -105,7 +101,7 @@ parseArgs Update xs
 parseArgs Order ('b':'y':' ':xs) = case error of
 					Right _ -> (\x -> if (odd $ length x) then Left "Incorrect Number of Arguments" else Right x) correct
 					Left str -> Left str
-					where all =  map (\x -> parseOrder x) $ words xs
+					where all =  map (\x -> parseOrder x) $ wordsSep ' ' xs
 					      error = foldr (>>) (all !! 0) all 
 					      correct = map (\x -> fromRight x) all
 		
@@ -143,7 +139,7 @@ parseRef (x:y:[]) = case rest of
 parseIdentVals :: Char -> String -> Either String [ArgsToken]
 parseIdentVals s xs = case error of
 			Left str -> Left str
-			Right _ -> Right $ foldr (++) [] $ map (\x -> fromRight (parseIdentVal s x) ) $ words xs
+			Right _ -> Right $ foldr (++) [] $ map (\x -> fromRight (parseIdentVal s x) ) $ wordsSep ' ' xs
 			where all =  map (\x -> parseIdentVal s x) $ wordsSep ' ' xs
 			      error = foldr (>>) (all !! 0) all 
 fromRight (Right a) = a 
