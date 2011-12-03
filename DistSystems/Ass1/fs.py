@@ -6,47 +6,11 @@ import secure
 import SocketServer
 import sys
 
-'''
-File Service
-============
+from services import lookup_as, lookup_ds, lookup_fs, get_ticket_for_file
 
-ticket | message
-
-The ticket contains the session key, which when decrypted with the server key reveals the session key
-Message decrypted with session key.
-Message is a json message of one of the following formats.
-
-OPEN
-{
-	type: "open",
-	message: "full/file/path/here"
-}
-
-What happens in the event of an open?
--------------------------------------
-
---> User + session key are cached. (is this needed?)
---> User (address, port) is added to a list of active for that file.
-
-WRITE
-{
-	type: "write"
-	message: "Diff of the changes"
-}
-
-What happens in the event of a write?
--------------------------------------
-
---> User will push the diff between old version and new version (this also shows that the user actually has the old file)
---> The server will update the server file.
---> Do something with all the clients which are active on that file. (some sort of ping) (Less important for now)
-
-What happens if the file is not found on server?
-------------------------------------------------
-
---> 
-'''
-
+password = "245ba14bbe3db735581b89871ec6d93cb95b058f"
+ASHOST = "localhost"
+ASPORT = 9998
 
 def patch_file(file_name, diff):
 	try:
@@ -59,7 +23,6 @@ def patch_file(file_name, diff):
 		print "OS error opening {0}".format(file_name + ".diff")
 		
 
-password = "245ba14bbe3db735581b89871ec6d93cb95b058f"
 class TCPServer(SocketServer.TCPServer):
 	allow_reuse_address = True
 
@@ -104,14 +67,48 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		}
 		try:
 			file_name = message["message"]
+			print "Writing changes to {0}".format(file_name)
 			patch_output = patch_file(file_name, base64.b64decode(message["payload"]))
-			print patch_output
+			print "Patch output:{0}".format(patch_output)
 		except ValueError:
-			print "Ugh message from user doesn't have a message field"
+			print "Ugh message from user doesn't have the required fields"
 			data["error"] = "Input"
 		finally:
 			data["type"] = "write"
 			self.request.send(secure.encrypt_with_key(json.dumps(data), session_key))
+			#This server is master, tell the slaves...
+			if "relative" in message:
+				self.replicate_changes(message["relative"], message["payload"])
+
+	def replicate_changes(self, relative, body):
+		print "I AM REPLICATING THE UPDATE"
+		#Replicate changes. First must get ds entry from 
+		name = "fs/{0}:{1}".format(HOST, PORT)
+		print "Connection AS at {0}:{1}".format(ASHOST, ASPORT)
+		results = get_ticket_for_file(relative, name, password)
+		if(results == None):
+			return None
+		tickets, session, servers_id = results
+		servers_id= [ [h, p, f] for h,p,f in servers_id if not (h == HOST and p == str(PORT))]
+		print "Servers:{0}".format(servers_id)
+		for i in range(0, len(servers_id)):
+			#Note relative left out to let the file server know that
+			#This is being replicated by a file server and doesnt need
+			#further replication.
+			ticket = tickets[i]
+			server_id = servers_id[i]
+			data = {
+				"ticket": ticket,
+				"request": {
+					"type":"write",
+					"message": os.path.join(server_id[2], relative),
+					"payload":body
+				}
+			}
+			print data
+			data["request"] = secure.encrypt_with_key(json.dumps(data["request"]), session)
+			print lookup_fs(data, "", server_id, session)
+
 
 if __name__ == "__main__":
 	if len(sys.argv) == 3:

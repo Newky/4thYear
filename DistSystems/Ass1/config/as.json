@@ -6,7 +6,8 @@
 	},
 	"services" : {
 			"fs" : [
-					["localhost", "19999", "245ba14bbe3db735581b89871ec6d93cb95b058f"]
+					["localhost", "19999", "245ba14bbe3db735581b89871ec6d93cb95b058f"],
+					["localhost", "19998", "245ba14bbe3db735581b89871ec6d93cb95b058f"]
 			       ],
 			"ds" : [
 					["localhost", "18888", "a7899d63fcc914cf0dd008bf8ba6bb9f3bccd1ab"]

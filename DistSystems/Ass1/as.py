@@ -53,9 +53,11 @@ class RequestHandler(SocketServer.BaseRequestHandler):
     def handle_ticket(self):
 	if "service" in self.jdata:
 		if "name" in self.jdata:
-			if self.jdata["name"] in names and self.jdata["service"] in services:
+			print self.jdata
+			if (self.jdata["name"] in names or is_server(self.jdata["name"])) and self.jdata["service"] in services:
 				#Handle successful login.
 				#ticket consists of session key but is encrypted with server key	
+				print "Request from {0}".format(self.jdata["name"])
 				session_key = generate_session_key()
 				#Add the user and session key combination
 				users[str(self.client_address[0])] = (session_key, NO_TIMEOUT)
@@ -70,7 +72,14 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 					"session": session_key,
 					"server_id": server_id
 				}
-				data = secure.encrypt_with_key(json.dumps(jsonresult), names[self.jdata["name"]])
+				#if a known client
+				if(self.jdata["name"] in names):
+					data = secure.encrypt_with_key(json.dumps(jsonresult), names[self.jdata["name"]])
+				else:
+					#we have already checked that its a valid server.
+					#Just need to extract its password from the config file.
+					pwd = extract_password_from_server(self.jdata["name"])
+					data = secure.encrypt_with_key(json.dumps(jsonresult), pwd)
 				self.request.send(data)
 				return
 		elif self.jdata["service"] in services:
@@ -108,11 +117,36 @@ def generate_session_key():
 		str += random.choice(alphabet)
 	return str
 
+#Already done the check below.
+def extract_password_from_server(name):
+	serv,cred  = name.split("/")
+	host, port = cred.split(":")
+	for h, p, pwd in services[serv]:
+		if h == host and p == port:
+			return pwd
+	return None
+
+# A server can query the as using
+# name: service/HOST:PORT
+def is_server(name):
+	parts = name.split("/")
+	if len(parts) <= 1:
+		return False
+	if parts[0] in services:
+		try:
+			shost, sport = parts[1].split(":")
+		except ValueError:
+			return False
+		for host, port, _ in services[parts[0]]:
+			if host == shost and port == sport:
+				return True 
+		return False
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 9998
     #Had to overload TCPServer so it reuses the addr
     server = TCPServer((HOST, PORT), RequestHandler)
+    print "Authentication Service running at {0}:{1}".format(HOST, PORT)
     #TCP server which serves forever on specified host and port.
     server.serve_forever()
 
