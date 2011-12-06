@@ -26,19 +26,20 @@ IplImage * make_binary_image(IplImage * source){
         return binary_image;
 }
 
-int number_of_holes(IplImage*source) {
-	IplImage* binary_image = cvCreateImage( cvGetSize(source), 8, 1 );
-	cvConvertImage( source, binary_image );
-	CvMemStorage* storage = cvCreateMemStorage(0);
-	CvSeq* contour = 0;
-	cvThreshold( binary_image, binary_image, 150, 255, CV_THRESH_BINARY );
-	cvFindContours( binary_image, storage, &contour, sizeof(CvContour),CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
-	cvZero(source);
-	int counter =0;
-	for(;contour !=0;contour = contour->h_next, counter++);
-	cvReleaseImage(&binary_image);
-	return counter -1;
-};
+//int number_of_holes(IplImage*source) {
+	//IplImage* binary_image2 = cvCreateImage( cvGetSize(source), 8, 1 );
+	//cvConvertImage( source, binary_image2 );
+	//IplImage* binary_image = cvCreateImage( cvGetSize(source), 8, 1 );
+	//CvMemStorage* storage = cvCreateMemStorage(0);
+	//CvSeq* contour = 0;
+	//cvThreshold( binary_image, binary_image, 150, 255, CV_THRESH_BINARY );
+	//cvFindContours( binary_image, storage, &contour, sizeof(CvContour),CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
+	//cvZero(source);
+	//int counter =0;
+	//for(;contour !=0;contour = contour->h_next, counter++);
+	//cvReleaseImage(&binary_image);
+	//return counter -1;
+//};
 
 /* Invert image simply cycles through each point and inverts the pixel
  * by simply doing 255 - pixel value */
@@ -170,18 +171,13 @@ void match_images(IplImage * incoming, IplImage* images[]) {
 		IplImage*temp= cvCreateImage(cvGetSize(incoming), incoming->depth, incoming->nChannels);
 		IplImage*cropped_num;
 		cvZero(temp);
-		CvScalar color = CV_RGB(rand()&255, rand()&255, rand()&255);
+		CvScalar color = CV_RGB(255, 255, 255);
 		cvDrawContours(temp, numbers, color, color, -1, CV_FILLED, 8 );
 		CvRect bounding = cvBoundingRect(numbers, 0);
-		cvNamedWindow("Window2", 0);
-		cvNamedWindow("Window3", 0);
-		cvNamedWindow("Window4", 0);
-		cvShowImage("Window2", temp);
 		cvSetImageROI(temp, bounding);
 		cropped_num= cvCreateImage(cvSize(bounding.width+6, bounding.height+6), temp->depth, temp->nChannels);
 		CvPoint offset = cvPoint(3, 3);
 		cvCopyMakeBorder(temp, cropped_num, offset, IPL_BORDER_CONSTANT);
-		cvShowImage("Window4", cropped_num);
 		IplImage * other3  = cvCreateImage(cvGetSize(cropped_num), cropped_num->depth, 1);
 		IplImage* resized = cvCreateImage(cvGetSize(cropped_num), cropped_num->depth, 1);
 		convert_color_to_black(cropped_num, other3);
@@ -191,9 +187,8 @@ void match_images(IplImage * incoming, IplImage* images[]) {
 		int hole_no=0;
 		for(CvSeq* cont =  holes; cont!= 0; cont= cont->h_next, hole_no++ );
 		hole_no--;
-		printf("%d\n", hole_no);
+		printf("Holes:%d\n", hole_no);
 		if(hole_no == 2) {
-			printf("8");
 			write_text_on_image(connected, cent.y, cent.x, "8");
 		}else{
 			for(int i=0;i<NUMBER_OF_KNOWN_CHARACTERS;i++) {
@@ -214,7 +209,6 @@ void match_images(IplImage * incoming, IplImage* images[]) {
 			}
 			char * num_st = (char *)malloc(sizeof(char) * 2);
 			sprintf(num_st, "%d", best_diff_i);
-			printf("%s", num_st);
 			write_text_on_image(connected, cent.y, cent.x, num_st);
 			free(num_st);
 		}
