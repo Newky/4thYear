@@ -12,7 +12,7 @@ void write_text_on_image(IplImage* image, int top_row, int top_column, char* tex
 	CvFont font;
 	double hScale=0.5;
 	double vScale=0.5;
-	int    lineWidth=1;
+	int    lineWidth=1.5;
 	cvInitFont(&font,CV_FONT_VECTOR0, hScale,vScale,0,lineWidth);
 	unsigned char colour[4] = { 0,0,255, 0 };
 	cvPutText(image,text,cvPoint(top_column,top_row+12), &font, cvScalar(colour[0],colour[1],colour[2]));
