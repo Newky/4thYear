@@ -132,6 +132,11 @@ def lookup_fs(data, local_file, server_id, password):
 				return None
 		elif received["type"] == "write":
 			return "Success"
+		elif received["type"] == "ping":
+			if "error" in received:
+				return received["error"]
+			else:
+				return received["mtime"]
 		else:
 			return None
 

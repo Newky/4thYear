@@ -13,11 +13,26 @@ class RemoteFile(file):
 		self.path = os.path.join(cached_directory, path);
 		self._mode = mode
 		self.local = None
-		if os.path.exists(self.path):
+		if os.path.exists(self.path) and not self.ping_for_changes():
 			file.__init__(self, self.path, mode)
 		else:
 			#Need to go to the remote.
 			self.get_file_from_server()
+
+	def ping_for_changes(self):
+		server_id, ticket, session = self.get_tickets()
+		data = {
+			"ticket": ticket,
+			"request": {"type": "ping","message":  os.path.join(server_id[2], self.rpath) }
+		}
+		data["request"] = secure.encrypt_with_key(json.dumps(data["request"]), session)
+		check = lookup_fs(data, self.path, server_id, session)
+		local_m_time = os.path.getmtime(self.path)
+		if( local_m_time < float(check)):
+			print "Old file, getting new one."
+			return True 
+		else:
+			return False
 
 	def get_tickets(self):
 		results = get_ticket_for_file(self.rpath, name, password)
@@ -66,21 +81,23 @@ class RemoteFile(file):
 name = "Richy"
 password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
 if __name__ == "__main__":
-	#rf = RemoteFile("Documents/strings", "r")
-	#rf.close()
+	rf = RemoteFile("Documents/Music/Test.txt", "r", "cached2")
+	print rf.readlines()
+	rf.close()
 	#time.sleep(5)
-	rf = RemoteFile("Documents/strings", "a")
-	rf.write('''
-I, man, am regal - a German am I
-Never odd or even
-If I had a hi-fi
-Madam, I'm Adam
-Too hot to hoot
-No lemons, no melon
-Too bad I hid a boot
-Lisa Bonet ate no basil
-Warsaw was raw
-Was it a car or a cat I saw?
-	''');
-	rf.close();
+	#rf = RemoteFile("Documents/strings", "a")
+	#rf.write('''
+#I, man, am regal - a German am I
+#Never odd or even
+#If I had a hi-fi
+#Madam, I'm Adam
+#Too hot to hoot
+#No lemons, no melon
+#Too bad I hid a boot
+#Lisa Bonet ate no basil
+#Warsaw was raw
+#Was it a car or a cat I saw?
+
+	#''');
+	#rf.close();
 

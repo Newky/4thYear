@@ -40,7 +40,23 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 				self.handle_open(message, ticket[0])
 			elif message["type"] == "write":
 				self.handle_write(message, ticket[0])
+			elif message["type"] == "ping":
+				self.handle_ping(message, ticket[0])
 
+	def handle_ping(self, message, session_key):
+		file_name = message["message"]
+		if os.path.exists(file_name):
+			data = {
+				"type": "ping",
+				"mtime" : os.path.getmtime(file_name)
+			}
+		else:
+			data = {
+				"type":"ping",
+				"error": "The file you requested doesn't exist"
+			}
+		self.request.send(secure.encrypt_with_key(json.dumps(data), session_key))
+			
 	def handle_open(self, message, session_key):
 		data = {
 			"payload" : ""
