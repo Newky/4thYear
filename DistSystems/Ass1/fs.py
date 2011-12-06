@@ -45,21 +45,31 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		data = {
 			"payload" : ""
 		}
+		newfile =False
 		try:
 			file_name = message["message"]
 			f = open(file_name, "rb")
-			b64_text = base64.b64encode(f.read())
-			data["payload"] = b64_text		
-			f.close()
+		except IOError:
+			#Equivalent of touching a file.
+			if not os.path.exists(os.path.dirname(file_name)):
+				os.makedirs(os.path.dirname(file_name))
+			open(file_name, "w").close()
+			f = open(file_name, "rb")
+			newfile = True
 		except ValueError:
 			print "No Message object on json message"
 			data["error"] = "no message type"
-		except OSError:	
-			print "Error opening file"
+		except OSError as e:	
+			print e
 			data["error"] = "io"
 		finally:
+			b64_text = base64.b64encode(f.read())
+			data["payload"] = b64_text		
+			f.close()
 			data["type"] = "read"
 			self.request.send(secure.encrypt_with_key(json.dumps(data), session_key))
+			if newfile and "relative" in message:
+				self.replicate_changes(message["relative"], "")
 
 	def handle_write(self, message, session_key):
 		data = {
@@ -68,8 +78,12 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		try:
 			file_name = message["message"]
 			print "Writing changes to {0}".format(file_name)
-			patch_output = patch_file(file_name, base64.b64decode(message["payload"]))
-			print "Patch output:{0}".format(patch_output)
+			diff = base64.b64decode(message["payload"])
+			if not diff == "":
+				patch_output = patch_file(file_name, diff)
+				print "Patch output:{0}".format(patch_output)
+			else:
+				open(file_name, "w").close()
 		except ValueError:
 			print "Ugh message from user doesn't have the required fields"
 			data["error"] = "Input"
@@ -89,8 +103,8 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		if(results == None):
 			return None
 		tickets, session, servers_id = results
+		print results
 		servers_id= [ [h, p, f] for h,p,f in servers_id if not (h == HOST and p == str(PORT))]
-		print "Servers:{0}".format(servers_id)
 		for i in range(0, len(servers_id)):
 			#Note relative left out to let the file server know that
 			#This is being replicated by a file server and doesnt need
@@ -108,7 +122,6 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 			print data
 			data["request"] = secure.encrypt_with_key(json.dumps(data["request"]), session)
 			print lookup_fs(data, "", server_id, session)
-
 
 if __name__ == "__main__":
 	if len(sys.argv) == 3:

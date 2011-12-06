@@ -119,15 +119,19 @@ def lookup_fs(data, local_file, server_id, password):
 			if(received):
 				contents = base64.b64decode(received["payload"])
 			try:
+				if not os.path.exists(os.path.dirname(local_file)):
+					os.makedirs(os.path.dirname(local_file))
 				f = open(local_file, "wb")
 				fc = open(hidden_file_path(local_file), "wb")
 				f.write(contents)
 				fc.write(contents)
 				f.close()
 				fc.close()
-				return "Saved at {0}, cache saved at {1}".format(local_file, hidden_file_path(local_file))
+				return "{0}".format(local_file)
 			except OSError:
-				return "Could not write to {0}".format(local_file)
+				return None
 		elif received["type"] == "write":
-			return "Successful Write"
+			return "Success"
+		else:
+			return None
 

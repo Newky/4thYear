@@ -59,6 +59,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		#being returned, this allows the client to keep trying them until it finds
 		#one which is live. It also allows the file server to push changes to each of the fileserver
 		#when a change is detected.
+		print message
 		self.directory_data = dir_lookup(message)
 		#Some weird list comprehensions, too much haskell on the brain.
 		server_id = [ [host, port, file_name] for host, port, file_name, pwd in self.directory_data ]
