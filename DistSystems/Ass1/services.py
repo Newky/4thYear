@@ -99,7 +99,10 @@ def lookup_fs(data, local_file, server_id, password):
 		print "About to connect socket"
 		# Connect to server and send data
 		sock.connect((    server_id[0], int(server_id[1])   ))
-		sock.send(json.dumps(data))
+		content = json.dumps(data)
+		content_length = json.dumps({ 'content-length': len(content)})
+		sock.send(content_length)
+		sock.send(content)
 		# Receive data from the server and shut down
 		packet = None
 		received="" 

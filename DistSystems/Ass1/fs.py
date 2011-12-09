@@ -28,7 +28,12 @@ class TCPServer(SocketServer.TCPServer):
 
 class RequestHandler(SocketServer.BaseRequestHandler):
 	def handle(self):
-		self.data = self.request.recv(1024).strip()
+		content_length= self.request.recv(1024).strip()
+		content_length = json.loads(content_length)
+		print content_length
+		content_length = content_length["content-length"]
+		print content_length
+		self.data = self.request.recv(int(content_length)).strip()
 		self.jdata = json.loads(self.data)
 		ticket = secure.decrypt_with_key(self.jdata["ticket"], password)
 		ticket = json.loads(ticket)
