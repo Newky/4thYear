@@ -12,7 +12,15 @@
 #define NUMBER_OF_BLACK_PIXELS 10
 #define NUMBER_OF_NB_PIXELS 100 
 
-
+/*A simple pair structure for storing the number and its position in the picture
+ * Used for printing out the picture.*/
+struct pair {
+	int number;
+	float position;
+};
+/* Takes a source image
+ * and returns a binary version of that image.
+ */
 IplImage * make_binary_image(IplImage * source){
         IplImage* binary_image = cvCreateImage( cvGetSize(source), 8, 1 );
         cvConvertImage( source, binary_image );
@@ -25,22 +33,6 @@ IplImage * make_binary_image(IplImage * source){
         cvReleaseImage(&temp);
         return binary_image;
 }
-
-//int number_of_holes(IplImage*source) {
-	//IplImage* binary_image2 = cvCreateImage( cvGetSize(source), 8, 1 );
-	//cvConvertImage( source, binary_image2 );
-	//IplImage* binary_image = cvCreateImage( cvGetSize(source), 8, 1 );
-	//CvMemStorage* storage = cvCreateMemStorage(0);
-	//CvSeq* contour = 0;
-	//cvThreshold( binary_image, binary_image, 150, 255, CV_THRESH_BINARY );
-	//cvFindContours( binary_image, storage, &contour, sizeof(CvContour),CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
-	//cvZero(source);
-	//int counter =0;
-	//for(;contour !=0;contour = contour->h_next, counter++);
-	//cvReleaseImage(&binary_image);
-	//return counter -1;
-//};
-
 /* Invert image simply cycles through each point and inverts the pixel
  * by simply doing 255 - pixel value */
 void invert_image( IplImage* source, IplImage* result )
@@ -64,7 +56,7 @@ void invert_image( IplImage* source, IplImage* result )
 /* Returns a CvSeq which is basically a list of 
  * Points which are connected
  */
-CvSeq* connected_components( IplImage* source, IplImage* result , int hack)
+CvSeq* connected_components( IplImage* source, IplImage* result)
 {
 	//Create a one channel image of the source file.
 	IplImage* binary_image = cvCreateImage( cvGetSize(source), 8, 1 );
@@ -95,19 +87,6 @@ CvSeq* connected_components( IplImage* source, IplImage* result , int hack)
 	return contours;
 }
 
-int number_of_pixels(IplImage * source) {
-	int width_step=source->widthStep;
-	int pixel_step=source->widthStep/source->width;
-	int row=0,col=0,count=0;
-	for(;row<source->height;row++) {
-		for (col=0; col < source->width; col++){
-			unsigned char* curr_point = GETPIXELPTRMACRO( source, col, row, width_step, pixel_step );
-			count += (curr_point[RED_CH]!=0 && curr_point[GREEN_CH]!=0 && curr_point[BLUE_CH]!=0);
-		}
-	}
-	return count;
-}
-
 // Structure to store features of a known or unknown character.
 typedef struct tLicensePlateCharacterFeatures_tag {
 	char name[10];
@@ -117,7 +96,12 @@ typedef struct tLicensePlateCharacterFeatures_tag {
 } tLicensePlateCharacterFeatures;
 
 
-
+/* Takes a image and a template
+ * with which to compare.
+ * XOR's the two, leaving any differences as 255.
+ * This counts the number of different pixels
+ * and returns its as an int.
+ */
 int template_match(IplImage* src, IplImage* dst) {
 	IplImage * temp = cvCreateImage(cvGetSize(src), src->depth, src->nChannels);
 	cvXor(src, dst, temp);
@@ -134,6 +118,11 @@ int template_match(IplImage* src, IplImage* dst) {
 	return diff;
 }
 
+/* Given a 3 channel image.
+ * Convert it to a single channel
+ * But make anything that is black white, 
+ * and anything that is any other color black.
+ */
 void convert_color_to_black(IplImage * src, IplImage * dst) {
 	int width_step=src->widthStep;
 	int pixel_step=src->widthStep/src->width;
@@ -153,44 +142,70 @@ void convert_color_to_black(IplImage * src, IplImage * dst) {
 		}
 	}
 }
-
-void match_images(IplImage * incoming, IplImage* images[]) {
+/* Main function, Takes the initial picture
+ * And a picture to render the results on.
+ * It also takes an array of the sample photos.
+ */
+void match_images(IplImage * incoming, IplImage* display, IplImage* images[]) {
+	// An image which holds the connected components image.
 	IplImage * connected = cvCreateImage(cvGetSize(incoming), incoming->depth, incoming->nChannels);
 	cvShowImage( "Original", incoming);
-	CvSeq* numbers = connected_components(incoming, connected, 15);
-	int i=0;
+	CvSeq* numbers = connected_components(incoming, connected);
+	// Count the number of numbers in the licence plate.
+	// This will count letters.
+	int no_of_no = 0;
+	for(CvSeq* numb = numbers;numb !=0;numb = numb->h_next)
+		if(cvContourArea(numb) > 50)
+			no_of_no++;
+	struct pair num_hold[no_of_no];
+	int i=0, j=0;
+	//For each contour found using connected components
 	for(i=0;numbers !=0;numbers = numbers->h_next, i++){
+		//Discard anything which shows an area greater than some number.
 		if(cvContourArea(numbers) < 50)
 			continue;
+		//Find its Centre and Radius (used for writing on image.)
 		CvPoint2D32f cent;
 		float radius;
-		cvMinEnclosingCircle(numbers, &cent, &radius);
-		char * window = (char *)malloc(sizeof(char) * 9);
-		sprintf(window, "Number %d", (i+1));
-		//temp is the number component but on the big image. (Single image)
+		cvMinEnclosingCircle(numbers, &cent, &radius);	
+		/* Temp is a single component.
+		 * But connected components preserves image position, so first I must render it on
+		 * an image the size of the original.
+		 */
 		IplImage*temp= cvCreateImage(cvGetSize(incoming), incoming->depth, incoming->nChannels);
 		IplImage*cropped_num;
 		cvZero(temp);
 		CvScalar color = CV_RGB(255, 255, 255);
 		cvDrawContours(temp, numbers, color, color, -1, CV_FILLED, 8 );
+		/* Next I use cvBoundingBox
+		 * to draw around the number so that I can crop the image to that size.
+		 * I add a border of size 3 all around the image.
+		 * This helps with the processing.
+		 */
 		CvRect bounding = cvBoundingRect(numbers, 0);
 		cvSetImageROI(temp, bounding);
 		cropped_num= cvCreateImage(cvSize(bounding.width+6, bounding.height+6), temp->depth, temp->nChannels);
 		CvPoint offset = cvPoint(3, 3);
 		cvCopyMakeBorder(temp, cropped_num, offset, IPL_BORDER_CONSTANT);
+		/* To do the template match, we must make 
+		 * the image 1 channel grayscale.*/
 		IplImage * other3  = cvCreateImage(cvGetSize(cropped_num), cropped_num->depth, 1);
 		IplImage* resized = cvCreateImage(cvGetSize(cropped_num), cropped_num->depth, 1);
 		convert_color_to_black(cropped_num, other3);
 		int best_diff=-1, best_diff_i=0;
-		IplImage * nothing = cvCloneImage(cropped_num);
-		CvSeq* holes = connected_components(cropped_num, cropped_num , 0);
+		/* Also get the number of holes present in the image.*/
+		CvSeq* holes = connected_components(cropped_num, cropped_num);
 		int hole_no=0;
 		for(CvSeq* cont =  holes; cont!= 0; cont= cont->h_next, hole_no++ );
 		hole_no--;
-		printf("Holes:%d\n", hole_no);
+		// If theres two holes, u assume its an 8 (only number with two holes)
 		if(hole_no == 2) {
-			write_text_on_image(connected, cent.y, cent.x, "8");
+			num_hold[j].number= 8;
+			num_hold[j].position = cent.x;
+			write_text_on_image(display, cent.y, cent.x, "8");
 		}else{
+			// Otherwise just loop through all the sample images 
+			// and pick out the template with the least difference.
 			for(int i=0;i<NUMBER_OF_KNOWN_CHARACTERS;i++) {
 				if(hole_no == 0)
 					if(i == 8 || i ==0 || i == 4 || i == 6 || i == 9)
@@ -209,21 +224,45 @@ void match_images(IplImage * incoming, IplImage* images[]) {
 			}
 			char * num_st = (char *)malloc(sizeof(char) * 2);
 			sprintf(num_st, "%d", best_diff_i);
-			write_text_on_image(connected, cent.y, cent.x, num_st);
+			num_hold[j].number= best_diff_i;
+			num_hold[j].position = cent.x;
+			write_text_on_image(display, cent.y, cent.x, num_st);
 			free(num_st);
 		}
+		//Release the images.
 		cvReleaseImage(&other3);
 		cvReleaseImage(&resized);
 		cvReleaseImage(&cropped_num);
+		cvReleaseImage(&connected);
+		j++;
+	}
+	/* Because the connected components takes the numbers
+	 * in a different order than what would be 
+	 * expected, I had to store the numbers and their position
+	 * in an array, I then used this to print them to the output 
+	 * correctly, so that I could submit proper terminal output.
+	 */
+	float min = display->width, limit =0;
+       	int min_index = -1;
+	for(i=0;i<no_of_no;i++) {
+		for(j=0;j<no_of_no;j++) {
+			if(num_hold[j].position < min && num_hold[j].position > limit) {
+				min = num_hold[j].position;
+				min_index = num_hold[j].number;
+			}
+		}
+		printf("%d", min_index);
+		limit = min;
+		min = display->width;
 	}
 	printf("\n");
-	cvShowImage("Processing", connected);
+	cvShowImage("Processing", display);
 }
 
 
 int main( int argc, char** argv )
 {
-	int selected_image_num = 2;
+	int selected_image_num = 1;
 	IplImage* selected_image = NULL;
 	IplImage* sample_number_images[NUMBER_OF_KNOWN_CHARACTERS];
 	IplImage* images[NUM_IMAGES];
@@ -280,7 +319,8 @@ int main( int argc, char** argv )
 	int user_clicked_key = 0;
 	do {
 		cvCopyImage( images[selected_image_num-1], selected_image );
-		match_images(selected_image, sample_number_images);
+		IplImage * display = cvCloneImage(selected_image);
+		match_images(selected_image,display, sample_number_images);
 		user_clicked_key = (char)cvWaitKey(0);
 		if ((user_clicked_key >= '1') && (user_clicked_key <= '0'+NUM_IMAGES))
 		{
