@@ -40,6 +40,26 @@ def lookup_as(data, password, HOST, PORT):
 		else:
 			return None
 
+def lookup_ls(filename, request, server_id, ticket, session):
+	data = {
+		"ticket": ticket,
+		"filename": filename,
+		"type":request,
+	}
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	received = None
+	try:
+		sock.connect(( server_id[0], int(server_id[1]) ))
+		sock.send(json.dumps(data))
+		received = sock.recv(1024)
+		received = secure.decrypt_with_key(received, session)
+	finally:
+		sock.close()
+		if(received):
+			return json.loads(received)
+		else:
+			return None
+
 def lookup_ds(message, server_id, ticket, session):
 	data = {
 		"message": secure.encrypt_with_key(message, session),
@@ -58,25 +78,52 @@ def lookup_ds(message, server_id, ticket, session):
 			return received
 		else:
 			return None
-	
-def get_ticket_for_file(file_to_lookup, name, password, HOST="localhost", PORT=9998, session=None):
-	global aslookups, dslookups
-	if "ds" in aslookups:
-		print "Using Cached AS lookup for DS"
-		ticket, session, server_id = aslookups["ds"][0] 
+
+def unlock_file(file_to_lookup, name, password, HOST="localhost", PORT=9998, session=None):
+	global aslookups
+	# AS LOOKUP
+	# FOR LS
+	ticket, session, server_id = check_as_cache(name, password, "ls", HOST, PORT) 
+	ls_results = lookup_ls(file_to_lookup, "unlock", server_id, ticket, session)
+	if "status_code" in ls_results:
+		if ls_results["status_code"] == 0:
+			raise IOError(ls_results["message"])
 	else:
-		#Data to get ticket for DS from AS
+		return None
+
+def check_as_cache(name,password,service, HOST, PORT):
+	global aslookups
+	if service in aslookups:
+		print "Using Cached AS lookup for LS"
+		return aslookups["ls"][0] 
+	else:
 		data = {
 			"name": name,
 			"type": "request",  
-			"service" : "ds"
+			"service" : service 
 		};
 		results = lookup_as(data, password, HOST, PORT)
-		print results
-		aslookups["ds"] = [results]
+		aslookups[service] = [results]
 		if results == None:
 			return None
-		ticket, session, server_id = results
+		return results
+
+def get_ticket_for_file(file_to_lookup, name, password, HOST="localhost", PORT=9998, session=None):
+	global aslookups, dslookups
+	# AS LOOKUP
+	# FOR LS
+	ticket, session, server_id = check_as_cache(name,password,"ls", HOST, PORT) 
+	ls_results = lookup_ls(file_to_lookup, "lock", server_id, ticket, session)
+	if "status_code" in ls_results:
+		if ls_results["status_code"] == 0:
+			raise IOError(ls_results["message"]);
+	else:
+		return None
+	# AS LOOKUP
+	# FOR DS
+	ticket, session, server_id = check_as_cache(name,password,"ds", HOST, PORT) 
+	# DS LOOKUP
+	# FOR THE DESIRED FILE.
 	if  os.path.dirname(file_to_lookup) in dslookups:
 		print "Using Cached DS lookup for "+file_to_lookup
 		message = dslookups[os.path.dirname(file_to_lookup)]
@@ -86,6 +133,7 @@ def get_ticket_for_file(file_to_lookup, name, password, HOST="localhost", PORT=9
 		# json decode the message coming back
 		message= json.loads(message)
 		dslookups[os.path.dirname(file_to_lookup)] = message
+	print message
 	#Ticket for FS from DS
 	ticket = message["ticket"]
 	server_id = json.loads(message["message"])

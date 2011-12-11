@@ -11,6 +11,9 @@
 			       ],
 			"ds" : [
 					["localhost", "18888", "a7899d63fcc914cf0dd008bf8ba6bb9f3bccd1ab"]
+				],
+			"ls" : [
+					["localhost", "17777", "67f8dc0c9f6451fb9e78ae43dafd2347csubf4a7"]
 				]
 	}
 }
