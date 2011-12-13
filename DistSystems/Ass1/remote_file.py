@@ -13,17 +13,17 @@ class RemoteFile(file):
 		self.path = os.path.join(cached_directory, path);
 		self._mode = mode
 		self.local = None
-		if os.path.exists(self.path) and not self.ping_for_changes():
+		if os.path.exists(self.path) and not self.look_for_changes():
 			file.__init__(self, self.path, mode)
 		else:
 			#Need to go to the remote.
 			self.get_file_from_server()
 
-	def ping_for_changes(self):
+	def look_for_changes(self):
 		server_id, ticket, session = self.get_tickets()
 		data = {
 			"ticket": ticket,
-			"request": {"type": "ping","message":  os.path.join(server_id[2], self.rpath) }
+			"request": {"type": "changed","message":  os.path.join(server_id[2], self.rpath) }
 		}
 		data["request"] = secure.encrypt_with_key(json.dumps(data["request"]), session)
 		check = lookup_fs(data, self.path, server_id, session)
@@ -86,50 +86,4 @@ if __name__ == "__main__":
 	print rf.readlines()
 	raw_input("Press a key to close file");
 	rf.close()
-	#time.sleep(5)
-	#rf = RemoteFile("Documents/strings", "w")
-	#rf.write('''
-#I, man, am regal - a German am I
-#Never odd or even
-#If I had a hifi
-#Madam, I'm Adam
-#Too hot to hoot
-#No lemons, no melon
-#Too bad I hid a boot
-#Lisa Bonet ate no basil
-#Warsaw was raw
-#Was it a car or a cat I saw?
-
-#Rise to vote, sir
-#Do geese see God?
-#"Do nine men interpret?" "Nine men," I nod
-#Rats live on no evil star
-#Won't lovers revolt now?
-#Race fast, safe car
-#Pa's a sap
-#Ma is as selfless as I am
-#May a moody baby doom a yam?
-
-#Ah Satan sees Natasha
-#No devil lived on
-#Lonely Tylenol 
-#Not a banana baton
-#No "x" in "Nixon"
-#O, stone, be not so
-#O Geronimo, no minor ego
-#"Naomi", I moan
-#"A Toyota's a Toyota"
-#A dog, a panic in a pagoda
-
-#Oh, no! Don Ho!
-#Nurse, I spy gypsies -- run!
-#Senile felines
-#Now I see bees I won
-#UFO tofu
-#We panic in a pew
-#Oozy rat in a sanitary zoo
-#God! A red nugget! A fat egg under a dog!
-#Go hang a salami, I'm a lasagna hog
-	#''');
-	#rf.close();
-
+	

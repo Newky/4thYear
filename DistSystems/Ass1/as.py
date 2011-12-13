@@ -6,7 +6,7 @@ import secure
 import SocketServer
 import time
 
-
+from services import check_servers_up, TaskThread
 '''
 The Authentication Server for the Distributed File System
 Responsible for tickets and tokens
@@ -19,6 +19,7 @@ Read in some of the config files
 
 config = json.loads(open("config/as.json", "r").read())
 names = config["names"]
+oldservices = config["services"]
 services = config["services"]
 users = {}
 
@@ -47,7 +48,9 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 	self.jdata = json.loads(self.data)
 	if(self.jdata != None):
 		if(self.jdata["type"]):
-			if(self.jdata["type"] == "request"):
+			if(self.jdata["type"] == "ping"):
+				self.request.send("[]")
+			elif(self.jdata["type"] == "request"):
 				self.handle_ticket()
 	
     def handle_ticket(self):
@@ -63,6 +66,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 				users[str(self.client_address[0])] = (session_key, NO_TIMEOUT)
 				ticket = [session_key]
 				#Randomly choose a server
+				print services
 				server_id = random.choice(services[self.jdata["service"]])
 				server_key = server_id[2]
 				server_id = (server_id[0], server_id[1])	
@@ -142,12 +146,19 @@ def is_server(name):
 				return True 
 		return False
 
+def check_services():
+	global services
+	services = check_servers_up(oldservices)
+
 if __name__ == "__main__":
     HOST, PORT = "localhost", 9998
     #Had to overload TCPServer so it reuses the addr
     server = TCPServer((HOST, PORT), RequestHandler)
     print "Authentication Service running at {0}:{1}".format(HOST, PORT)
     #TCP server which serves forever on specified host and port.
+    Pinger = TaskThread()
+    Pinger.task = check_services
+    Pinger.start()
     server.serve_forever()
 
 

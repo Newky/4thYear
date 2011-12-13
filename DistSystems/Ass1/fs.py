@@ -30,9 +30,11 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 	def handle(self):
 		content_length= self.request.recv(1024).strip()
 		content_length = json.loads(content_length)
-		print content_length
+		if "type" in content_length:	
+			if content_length["type"] == "ping":
+				self.request.send("[]")
+				return
 		content_length = content_length["content-length"]
-		print content_length
 		self.data = self.request.recv(int(content_length)).strip()
 		self.jdata = json.loads(self.data)
 		ticket = secure.decrypt_with_key(self.jdata["ticket"], password)
@@ -40,12 +42,13 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		print ticket
 		message = secure.decrypt_with_key(self.jdata["request"], ticket[0])
 		message = json.loads(message)
+		print message
 		if "type" in message:	
 			if message["type"] == "open":
 				self.handle_open(message, ticket[0])
 			elif message["type"] == "write":
 				self.handle_write(message, ticket[0])
-			elif message["type"] == "ping":
+			elif message["type"] == "changed":
 				self.handle_ping(message, ticket[0])
 
 	def handle_ping(self, message, session_key):

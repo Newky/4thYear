@@ -27,12 +27,20 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		self.data = self.request.recv(1024).strip()
 		try:
 			self.jdata = json.loads(self.data)
+			if "type" in self.jdata:
+				if self.jdata["type"] == "ping":
+					self.request.send("[]")
+					session = None
+					return
 			print "Received: {0}".format(self.jdata)
 			session = secure.decrypt_with_key(self.jdata["ticket"], password).strip()
 			session = json.loads(session)[0]
-			filename = secure.decrypt_with_key(self.jdata["filename"], session)
+			filename = secure.decrypt_with_key(self.jdata["filename"], session).strip()
 			if "type" in self.jdata:
-				if self.jdata["type"] == "unlock":
+				if self.jdata["type"] == "ping":
+					self.request.send("[]")
+					return
+				elif self.jdata["type"] == "unlock":
 					if filename in locked_files:
 						if locked_files[filename] == self.client_address[0]:
 							del locked_files[filename]
@@ -57,7 +65,10 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 			resp["message"] = "Incorrect incoming json parameters."
 		finally:
 			print resp
-			jdata= secure.encrypt_with_key(json.dumps(resp), session)
+			if session:
+				jdata= secure.encrypt_with_key(json.dumps(resp), session)
+			else:
+				jdata = json.dumps(resp)
 			self.request.send(jdata)
 
 locked_files = {}

@@ -4,16 +4,12 @@ import os
 import json
 import socket
 import secure
+import sys
+import threading
 
 dslookups = {}
 aslookups = {}
-
-'''
-Looks up authentication server
-for a user.
-Gets back [ticket, session key, [server address, server port]]
-'''
-
+TIMEOUT = 5.0
 
 def hidden_file_path(file_path):
 	if file_path.rfind("/") == -1:
@@ -43,7 +39,7 @@ def lookup_as(data, password, HOST, PORT):
 def lookup_ls(filename, request, server_id, ticket, session):
 	data = {
 		"ticket": ticket,
-		"filename": filename,
+		"filename": secure.encrypt_with_key(filename, session),
 		"type":request,
 	}
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -56,6 +52,7 @@ def lookup_ls(filename, request, server_id, ticket, session):
 	finally:
 		sock.close()
 		if(received):
+			print received
 			return json.loads(received)
 		else:
 			return None
@@ -162,8 +159,11 @@ def lookup_fs(data, local_file, server_id, password):
 		print "Here and now"
 		received = secure.decrypt_with_key(received, password)
 		received = json.loads(received)
+	except IOError:
+		
 	finally:
 		sock.close()
+		print "Data {0}".format(data)
 		print "Received {0}".format(received)
 		if received["type"] == "read":
 			contents = ""
@@ -190,4 +190,57 @@ def lookup_fs(data, local_file, server_id, password):
 				return received["mtime"]
 		else:
 			return None
+
+def check_servers_up(services):
+	print "Checking Servers"
+	for serv in services:
+		service = services[serv]
+		for i in range(0, len(service)):
+			inst = service[i]
+			host = inst[0]
+			port = inst[1]
+			try:
+				sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				sock.settimeout(TIMEOUT)
+				sock.connect((host, int(port)))
+				sock.send(json.dumps({"type":"ping"}))
+				received = sock.recv(1024)
+			except:
+				print "{2} at {0}:{1} is down".format(inst[0], inst[1], serv)
+				service[i] = None
+			finally:
+				sock.close()
+		services[serv] = filter((lambda x: x!= None), service)
+	return services
+
+class TaskThread(threading.Thread):
+    """Thread that executes a task every N seconds"""
+    
+    def __init__(self):
+        threading.Thread.__init__(self)
+	threading.Thread.daemon = True
+        self._finished = threading.Event()
+        self._interval = 60.0
+    
+    def setInterval(self, interval):
+        """Set the number of seconds we sleep between executing our task"""
+        self._interval = interval
+    
+    def shutdown(self):
+        """Stop this thread"""
+        self._finished.set()
+    
+    def run(self):
+        while 1:
+            if self._finished.isSet(): return
+            self.task()
+            
+            # sleep for interval or until shutdown
+            self._finished.wait(self._interval)
+    
+    def task(self):
+        """The task done by this thread - override in subclasses"""
+        pass
+					
+					
 
