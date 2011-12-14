@@ -156,9 +156,9 @@ if __name__ == "__main__":
     server = TCPServer((HOST, PORT), RequestHandler)
     print "Authentication Service running at {0}:{1}".format(HOST, PORT)
     #TCP server which serves forever on specified host and port.
-    Pinger = TaskThread()
-    Pinger.task = check_services
-    Pinger.start()
+    #Pinger = TaskThread()
+    #Pinger.task = check_services
+    #Pinger.start()
     server.serve_forever()
 
 

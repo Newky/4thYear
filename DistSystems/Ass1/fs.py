@@ -6,21 +6,11 @@ import secure
 import SocketServer
 import sys
 
-from services import lookup_as, lookup_ds, lookup_fs, get_ticket_for_file
+from services import lookup_as, lookup_ds, lookup_fs, get_ticket_for_file, patch_file
 
 password = "245ba14bbe3db735581b89871ec6d93cb95b058f"
 ASHOST = "localhost"
 ASPORT = 9998
-
-def patch_file(file_name, diff):
-	try:
-		f = open(file_name + ".diff", "w")
-		f.write(diff)
-		f.close()
-		f = os.popen("patch %s -i %s" %(file_name, file_name + ".diff"))
-		return f.read()
-	except OSError:
-		print "OS error opening {0}".format(file_name + ".diff")
 		
 
 class TCPServer(SocketServer.TCPServer):
@@ -35,15 +25,17 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 				self.request.send("[]")
 				return
 		content_length = content_length["content-length"]
+		print "Content_length:{0}".format(content_length)
+		self.request.send("Got it")
 		self.data = self.request.recv(int(content_length)).strip()
 		self.jdata = json.loads(self.data)
 		ticket = secure.decrypt_with_key(self.jdata["ticket"], password)
 		ticket = json.loads(ticket)
-		print ticket
+		print "Ticket Used for decryption:{0}".format(ticket[0])
 		message = secure.decrypt_with_key(self.jdata["request"], ticket[0])
 		message = json.loads(message)
-		print message
 		if "type" in message:	
+			print "message type:{0}".format(message["type"])
 			if message["type"] == "open":
 				self.handle_open(message, ticket[0])
 			elif message["type"] == "write":

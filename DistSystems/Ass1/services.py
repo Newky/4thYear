@@ -36,11 +36,12 @@ def lookup_as(data, password, HOST, PORT):
 		else:
 			return None
 
-def lookup_ls(filename, request, server_id, ticket, session):
+def lookup_ls(filename, request, server_id, ticket, session, name):
 	data = {
 		"ticket": ticket,
 		"filename": secure.encrypt_with_key(filename, session),
 		"type":request,
+		"name": name
 	}
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	received = None
@@ -52,7 +53,7 @@ def lookup_ls(filename, request, server_id, ticket, session):
 	finally:
 		sock.close()
 		if(received):
-			print received
+			#print received
 			return json.loads(received)
 		else:
 			return None
@@ -81,7 +82,7 @@ def unlock_file(file_to_lookup, name, password, HOST="localhost", PORT=9998, ses
 	# AS LOOKUP
 	# FOR LS
 	ticket, session, server_id = check_as_cache(name, password, "ls", HOST, PORT) 
-	ls_results = lookup_ls(file_to_lookup, "unlock", server_id, ticket, session)
+	ls_results = lookup_ls(file_to_lookup, "unlock", server_id, ticket, session, name)
 	if "status_code" in ls_results:
 		if ls_results["status_code"] == 0:
 			raise IOError(ls_results["message"])
@@ -91,8 +92,8 @@ def unlock_file(file_to_lookup, name, password, HOST="localhost", PORT=9998, ses
 def check_as_cache(name,password,service, HOST, PORT):
 	global aslookups
 	if service in aslookups:
-		print "Using Cached AS lookup for LS"
-		return aslookups["ls"][0] 
+		print "Using Cached AS lookup for {0}".format(service)
+		return aslookups[service][0] 
 	else:
 		data = {
 			"name": name,
@@ -109,8 +110,8 @@ def get_ticket_for_file(file_to_lookup, name, password, HOST="localhost", PORT=9
 	global aslookups, dslookups
 	# AS LOOKUP
 	# FOR LS
-	ticket, session, server_id = check_as_cache(name,password,"ls", HOST, PORT) 
-	ls_results = lookup_ls(file_to_lookup, "lock", server_id, ticket, session)
+	ticket, session, server_id= check_as_cache(name,password,"ls", HOST, PORT) 
+	ls_results = lookup_ls(file_to_lookup, "lock", server_id, ticket, session, name)
 	if "status_code" in ls_results:
 		if ls_results["status_code"] == 0:
 			raise IOError(ls_results["message"]);
@@ -122,7 +123,7 @@ def get_ticket_for_file(file_to_lookup, name, password, HOST="localhost", PORT=9
 	# DS LOOKUP
 	# FOR THE DESIRED FILE.
 	if  os.path.dirname(file_to_lookup) in dslookups:
-		print "Using Cached DS lookup for "+file_to_lookup
+		#print "Using Cached DS lookup for "+file_to_lookup
 		message = dslookups[os.path.dirname(file_to_lookup)]
 	else:
 		# Lookup the directory service for the file we are looking for
@@ -130,7 +131,7 @@ def get_ticket_for_file(file_to_lookup, name, password, HOST="localhost", PORT=9
 		# json decode the message coming back
 		message= json.loads(message)
 		dslookups[os.path.dirname(file_to_lookup)] = message
-	print message
+	print "message from ds lookup:{0}".format(message)
 	#Ticket for FS from DS
 	ticket = message["ticket"]
 	server_id = json.loads(message["message"])
@@ -141,30 +142,29 @@ def lookup_fs(data, local_file, server_id, password):
 	received = None
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	try:
-		print "About to connect socket"
+		#print "About to connect socket"
 		# Connect to server and send data
 		sock.connect((    server_id[0], int(server_id[1])   ))
 		content = json.dumps(data)
 		content_length = json.dumps({ 'content-length': len(content)})
 		sock.send(content_length)
+		received = sock.recv(10)
 		sock.send(content)
 		# Receive data from the server and shut down
 		packet = None
 		received="" 
-		print "socket connected, going into loop"
+		#print "socket connected, going into loop"
 		while 1:
 			packet = sock.recv(1024)
 			if not packet:  break
 			received += packet
-		print "Here and now"
-		received = secure.decrypt_with_key(received, password)
-		received = json.loads(received)
-	except IOError:
-		
+		#print "Here and now"
+		received=secure.decrypt_with_key(received, password)
+		received=json.loads(received)
 	finally:
 		sock.close()
-		print "Data {0}".format(data)
-		print "Received {0}".format(received)
+		#print "Data {0}".format(data)
+		#print "Received {0}".format(received)
 		if received["type"] == "read":
 			contents = ""
 			if(received):
@@ -242,5 +242,15 @@ class TaskThread(threading.Thread):
         """The task done by this thread - override in subclasses"""
         pass
 					
-					
+	
+def patch_file(file_name, diff):
+	try:
+		f = open(file_name + ".diff", "w")
+		f.write(diff)
+		f.close()
+		f = os.popen("patch %s -i %s" %(file_name, file_name + ".diff"))
+		return f.read()
+	except OSError:
+		print "OS error opening {0}".format(file_name + ".diff")
+				
 

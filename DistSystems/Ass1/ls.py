@@ -36,13 +36,14 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 			session = secure.decrypt_with_key(self.jdata["ticket"], password).strip()
 			session = json.loads(session)[0]
 			filename = secure.decrypt_with_key(self.jdata["filename"], session).strip()
+			filename = secure.decrypt_with_key(self.jdata["filename"], session).strip()
 			if "type" in self.jdata:
 				if self.jdata["type"] == "ping":
 					self.request.send("[]")
 					return
 				elif self.jdata["type"] == "unlock":
 					if filename in locked_files:
-						if locked_files[filename] == self.client_address[0]:
+						if locked_files[filename] == str(self.client_address[0]) + self.jdata["name"]:
 							del locked_files[filename]
 							resp["message"] = "Successfully unlocked {0}".format(filename)
 							resp["status_code"] = 1
@@ -52,9 +53,13 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 						resp["message"] = "File is not locked so an unlock is not possible."
 				elif self.jdata["type"] == "lock":
 					if filename in locked_files:
-						resp["message"] = "Filename {0} is locked. Unable to access.".format(filename)	
+						if locked_files[filename] == str(self.client_address[0]) + self.jdata["name"]:
+							resp["message"] = "You already have the lock for {0}".format(filename)
+							resp["status_code"] = 1
+						else:
+							resp["message"] = "Filename {0} is locked. Unable to access.".format(filename)	
 					else:
-						locked_files[filename] = self.client_address[0]
+						locked_files[filename] = str(self.client_address[0]) + self.jdata["name"]
 						resp["message"] = "Filename {0} successfully locked.".format(filename)
 						resp["status_code"] = 1
 			else:
