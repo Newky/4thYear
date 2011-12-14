@@ -115,7 +115,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		#Replicate changes. First must get ds entry from 
 		name = "fs/{0}:{1}".format(HOST, PORT)
 		print "Connection AS at {0}:{1}".format(ASHOST, ASPORT)
-		results = get_ticket_for_file(relative, name, password)
+		results = get_ticket_for_file(relative, name, password, ls_needed=False)
 		if(results == None):
 			return None
 		tickets, session, servers_id = results

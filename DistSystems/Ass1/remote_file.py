@@ -24,23 +24,26 @@ class RemoteFile(file):
 
 	def look_for_changes(self):
 		server_id, ticket, self.session = self.get_tickets()
-		print "Looking for changes with session {0}".format(self.session)
+		#print "Looking for changes with session {0}".format(self.session)
 		data = {
 			"ticket": ticket,
 			"request": {"type": "changed","message":  os.path.join(server_id[2], self.rpath) }
 		}
 		data["request"] = secure.encrypt_with_key(json.dumps(data["request"]), self.session)
 		check = lookup_fs(data, self.path, server_id, self.session)
+		if(check == None):
+			self.look_for_changes()
+			return
 		local_m_time = os.path.getmtime(self.path)
 		if( local_m_time < float(check)):
-			print "Old file, getting new one."
+			#print "Old file, getting new one."
 			return True 
 		else:
 			return False
 
 	def get_tickets(self):
-		print "Getting tickets and session is:{0}".format(self.session) 
-		print "Name:{0} Password:{1}".format(self._name,self.password)
+		#print "Getting tickets and session is:{0}".format(self.session) 
+		#print "Name:{0} Password:{1}".format(self._name,self.password)
 		results = get_ticket_for_file(self.rpath, self._name, self.password, session=self.session)
 		if(results == None):
 			raise IOError("%s does not exist"%(self.path))
@@ -53,7 +56,7 @@ class RemoteFile(file):
 
 	def get_file_from_server(self):
 		server_id, ticket, self.session = self.get_tickets()
-		print "Getting file from server with session {0}".format(self.session)
+		#print "Getting file from server with session {0}".format(self.session)
 		data = {
 			"ticket": ticket,
 			"request": {"type": "open","relative": self.rpath,"message":  os.path.join(server_id[2], self.rpath) }
@@ -61,7 +64,8 @@ class RemoteFile(file):
 		data["request"] = secure.encrypt_with_key(json.dumps(data["request"]), self.session)
 		check = lookup_fs(data, self.path, server_id, self.session)
 		if(check == None):
-			raise IOError("Could not retrieve %s"%(self.rpath))
+			#self.get_file_from_server()
+			return
 		file.__init__(self, self.path, self._mode)
 			
 	def close(self):
@@ -70,7 +74,7 @@ class RemoteFile(file):
 			command = "diff {0} {1} | tee {2} ".format(hidden_file_path(self.path), self.path, self.path+ ".diff")
 			r= os.popen(command)
 			server_id, ticket, self.session = self.get_tickets()
-			print "Writing changes to server1 with session {0}".format(self.session)
+			#print "Writing changes to server1 with session {0}".format(self.session)
 			diff_contents = r.read();
 			data = {
 				"ticket": ticket,
@@ -90,8 +94,7 @@ class RemoteFile(file):
 
 
 if __name__ == "__main__":
-	rf = RemoteFile("Documents/Music/Test.txt", "a", "cached")
-	print rf.write("Demo Write %s")
-	raw_input("Press a key to close file");
+	rf = RemoteFile("Documents/big.txt", "r", "cached")
+	print rf.read()
 	rf.close()
 	

@@ -6,32 +6,34 @@ from remote_file import RemoteFile
 name = "Richy"
 password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
 
-def read(name, password,filename = "Documents/Music/Test.txt", directory="cached"):
+def read(name, password,filename = "Documents/Music/Test.hs", directory="cached"):
 	rf = RemoteFile(filename, "r", directory, name, password)
 	print rf.read()
 	rf.close()
 	return
 
-def pause(name, password,filename = "Documents/Music/Test.txt", directory="cached"):
+def pause(name, password,filename = "Documents/Music/Test.hs", directory="cached"):
 	rf = RemoteFile(filename, "r", directory, name, password)
 	print rf.read()
 	raw_input("Press enter to close file.")
 	rf.close()
 	return
 
-
-def date_to_file(name, password,mode, filename = "Documents/Music/Test.txt", directory="cached"):
+def input_to_file(name, password,mode, filename = "Documents/Music/Test.hs", directory="cached"):
 	rf = RemoteFile(filename, mode, directory, name, password)
-	rf.write(os.popen("date").read())
+	u_input = sys.stdin.readline()
+	while(u_input != ".\n"):
+		rf.write(u_input)
+		u_input = sys.stdin.readline() 
 	rf.close()
 	return
 
-def write(name, password,filename = "Documents/Music/Test.txt", directory="cached"):
-	date_to_file("w", filename, directory, name, password)
+def write(name, password,filename = "Documents/Music/Test.hs", directory="cached"):
+	input_to_file( name, password,"w", filename, directory)
 	return
 
-def append(name, password,filename = "Documents/Music/Test.txt", directory="cached"):
-	date_to_file("a", filename, directory, name, password)
+def append(name, password,filename = "Documents/Music/Test.hs", directory="cached"):
+	input_to_file(name, password,"a", filename, directory)
 	return
 	
 
