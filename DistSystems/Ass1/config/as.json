@@ -1,8 +1,8 @@
 {
 	"names": {
 		"Richy" : "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7",
-		"richdel": "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7",
-		"ec2-user": "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
+		"richdel": "5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8",
+		"ec2-user": "5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8"
 	},
 	"services" : {
 			"fs" : [

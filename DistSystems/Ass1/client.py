@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import os
 import sys
+import hashlib
 from datetime import time
 from remote_file import RemoteFile
 name = "Richy"
@@ -49,7 +50,7 @@ if __name__ == "__main__":
 			client= sys.argv[2]
 			if len(sys.argv) > 4:
 				name = sys.argv[3]
-				password = sys.argv[4]
+				password = hashlib.sha1(sys.argv[4]).hexdigest()
 		else:
 			client="cached"
 			

@@ -25,7 +25,6 @@ Returns something like this if successful:
 Otherwise it returns a []
 '''
 def dir_lookup(dir_name):
-	print directories
 	if dir_name in directories:
 		return directories[dir_name][0]
 	else:
@@ -66,7 +65,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		#being returned, this allows the client to keep trying them until it finds
 		#one which is live. It also allows the file server to push changes to each of the fileserver
 		#when a change is detected.
-		print message
+		print "Request for {0}".format(message)
 		self.directory_data = dir_lookup(message)
 		#Some weird list comprehensions, too much haskell on the brain.
 		server_id = [ [host, port, file_name] for host, port, file_name, pwd in self.directory_data ]
@@ -78,7 +77,6 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 				"message":client_msg
 		}
 		#Encrypt response with session key
-		print "Encrypting with {0}".format(ticket[0])
 		self.request.send(secure.encrypt_with_key(json.dumps(data), ticket[0]))
 
 def check_services():

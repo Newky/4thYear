@@ -193,7 +193,6 @@ def lookup_fs(data, local_file, server_id, password):
 		return None
 
 def check_servers_up(services):
-	print "Checking Servers"
 	for serv in services:
 		service = services[serv]
 		for i in range(0, len(service)):
@@ -212,6 +211,7 @@ def check_servers_up(services):
 			finally:
 				sock.close()
 		services[serv] = filter((lambda x: x!= None), service)
+	print services
 	return services
 
 class TaskThread(threading.Thread):
@@ -221,7 +221,7 @@ class TaskThread(threading.Thread):
         threading.Thread.__init__(self)
 	threading.Thread.daemon = True
         self._finished = threading.Event()
-        self._interval = 60.0
+        self._interval = 20.0
     
     def setInterval(self, interval):
         """Set the number of seconds we sleep between executing our task"""

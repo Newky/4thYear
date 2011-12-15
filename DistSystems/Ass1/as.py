@@ -19,7 +19,7 @@ Read in some of the config files
 
 config = json.loads(open("config/as.json", "r").read())
 names = config["names"]
-oldservices = config["services"]
+oldservices = dict(config["services"])
 services = config["services"]
 users = {}
 
@@ -66,7 +66,6 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 				users[str(self.client_address[0])] = (session_key, NO_TIMEOUT)
 				ticket = [session_key]
 				#Randomly choose a server
-				print services
 				server_id = random.choice(services[self.jdata["service"]])
 				server_key = server_id[2]
 				server_id = (server_id[0], server_id[1])	
@@ -147,8 +146,10 @@ def is_server(name):
 		return False
 
 def check_services():
-	global services
-	services = check_servers_up(oldservices)
+	global oldservices, services
+	print oldservices
+	temp = dict(oldservices)
+	services = check_servers_up(temp)
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 9998
