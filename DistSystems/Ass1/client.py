@@ -4,6 +4,11 @@ import sys
 import hashlib
 from datetime import time
 from remote_file import RemoteFile
+'''
+Test Handle for Demo
+and example usage for the remote file class
+'''
+
 name = "Richy"
 password = "67f8dc0c9f6451fb9e78ae43dafd2347caddf4a7"
 

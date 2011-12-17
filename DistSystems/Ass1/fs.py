@@ -25,13 +25,11 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 				self.request.send("[]")
 				return
 		content_length = content_length["content-length"]
-		print "Content_length:{0}".format(content_length)
 		self.request.send("Got it")
 		self.data = self.request.recv(int(content_length)).strip()
 		self.jdata = json.loads(self.data)
 		ticket = secure.decrypt_with_key(self.jdata["ticket"], password)
 		ticket = json.loads(ticket)
-		print "Ticket Used for decryption:{0}".format(ticket[0])
 		message = secure.decrypt_with_key(self.jdata["request"], ticket[0])
 		message = json.loads(message)
 		if "type" in message:	
@@ -64,9 +62,11 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 		newfile =False
 		try:
 			file_name = message["message"]
+			print "Received open request from {0}.".format(file_name)
 			f = open(file_name, "rb")
 		except IOError:
-			#Equivalent of touching a file.
+			#Equivalent of touching a file
+			print "{0} doesn't exist".format(file_name)
 			if not os.path.exists(os.path.dirname(file_name)):
 				os.makedirs(os.path.dirname(file_name))
 			open(file_name, "w").close()
@@ -111,7 +111,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 				self.replicate_changes(message["relative"], message["payload"])
 
 	def replicate_changes(self, relative, body):
-		print "I AM REPLICATING THE UPDATE"
+		print "I Am Replicating The Update"
 		#Replicate changes. First must get ds entry from 
 		name = "fs/{0}:{1}".format(HOST, PORT)
 		print "Connection AS at {0}:{1}".format(ASHOST, ASPORT)
@@ -135,7 +135,6 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 					"payload":body
 				}
 			}
-			print data
 			data["request"] = secure.encrypt_with_key(json.dumps(data["request"]), session)
 			print lookup_fs(data, "", server_id, session)
 
