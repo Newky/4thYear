@@ -66,7 +66,7 @@ spreadsheet2str m= (unlines. map (unwordsSep ',' . map show) ) m
 file2Sheet :: String -> Spreadsheet
 file2Sheet conts =  file2Sheet' heads total
 		    where total = lines conts
-			  heads = filter ((\x -> x /= "") . wordsSep ',') (head total)
+			  heads = (wordsSep ',') (head total)
 			  
 --Zips headings with each column i.e ("Map Name", "Example")
 --Uses str2field to turn this into a field. i.e (Map "Map Name" "Example")

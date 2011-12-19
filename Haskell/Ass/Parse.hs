@@ -169,7 +169,8 @@ parseIdent full@('"':xs) = case str of
 				Just s -> Right (Ident s)
 				Nothing -> Left "Invalid Identifier"
 			   where str = parseQuote full 
-		 
+-- Takes some quoted string
+-- such as "this string" and removes quotes
 parseQuote :: String -> Maybe String
 parseQuote ('"':[]) = Nothing 
 parseQuote ('"':xs) = case lastchar of
@@ -180,6 +181,8 @@ parseQuote ('"':xs) = case lastchar of
 			      remainder = reverse $ tail reversed
 parseQuote _ = Nothing 
 
+-- Words seperator which works with quotes.
+-- i.e "this,\"is,quote\" string" -> ["this", "\"is,quoted\"", "string"]
 wordsSep :: Char ->String -> [String]
 wordsSep s [] = [""]
 wordsSep s (x:xs) 
