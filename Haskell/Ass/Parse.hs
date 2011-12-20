@@ -124,6 +124,8 @@ parseArgs Order ("by":xs) = case error of
 					where all =  map (\x -> parseOrder x) $ xs
 					      error = foldr (>>) (all !! 0) all 
 					      correct = map (\x -> fromRight x) all
+parseArgs Help (x:[]) = Right [(Value x)]
+
 -- Base cases :)
 parseArgs _ [] =  Right []
 parseArgs _ xs =  Left "Invalid arguments given to function" 

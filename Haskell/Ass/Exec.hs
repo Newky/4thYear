@@ -7,6 +7,7 @@ import Data.Time.Clock
 import Data.Time.Calendar
 import Dates
 import Db
+import Help
 import Control.Applicative
 
 
@@ -77,16 +78,21 @@ exec List xs con@((Just m), s, o) = do
 exec Load ((Filename x):[]) con@((Just m), s, o) = do
 				putStrLn $ (++) "Opening " $ show x 
 				newm <- loadsheetf x m
-				putStrLn $ (show $ (length .headings .head) newm) ++ " Headings."
-				putStrLn $ (show $ length (tail newm)) ++ " records loaded."
-				return ((Just newm), s, o)
+				case newm of
+					[] -> do
+						putStrLn "Could not load file"
+						return con
+					_ -> do
+						putStrLn $ (show $ (length .headings .head) newm) ++ " Headings."
+						putStrLn $ (show $ length (tail newm)) ++ " records loaded."
+						return ((Just newm), s, o)
 
 exec Help [] con = do
-		   putStrLn $ "put general help here."
+		   putStrLn $ "Spreadsheet haskell program by Richy Delaney."
 		   return con
 
 exec Help ((Value x):[]) con = do
-				putStrLn $ (++) "help for " $ show x
+				putStrLn $ (++) "help for " $ help x 
 				return con
 
 -- GridFix Takes a column value pair and once it has ensured
@@ -134,6 +140,13 @@ exec Order x con@((Just m), s, o) = do
 -- important to close handle if output is not stdout.
 -- returning Nothing as the model to the main will cause the program to exit.
 exec Quit _ con@((Just m), s, o) = do
+				   putStrLn "Do you want to save the file(y|n)?"
+				   line <- getLine 
+				   case line of
+					"y" -> do
+						savesheet "map-register.csv" m
+						putStrLn "Saved sheet to map-register.csv."
+					_ -> putStrLn "Not saving the file."
 				   case (o==stdout) of
 				   	False -> hClose o
 					_ -> return ()
