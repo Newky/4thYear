@@ -175,7 +175,7 @@ exec Report (Registrations:[]) con@((Just m), s, o) = do
 exec Report (Competitions:[]) con@((Just m), s, o) = do
 						now <- date
 						let rows = filter (\r -> isDateBefore now (r !! 7)) m
-						hPutStrLn o $ spreadsheet2str rows 
+						hPutStrLn o $ spreadsheet2str $ map (\r-> [(r !! 1)] ) rows 
 						return con
 
 
